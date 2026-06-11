@@ -1,0 +1,17 @@
+[project]
+name = "xlsxpress"
+version = "0.1.0"
+description = "Open tabular files (csv, tsv, txt, parquet) as safely formatted Excel files."
+readme = "README.md"
+authors = [
+    { name = "David M. Hollenstein", email = "hollenstein.david@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = []
+
+[project.scripts]
+xlsxpress = "xlsxpress.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.11.12,<0.12.0"]
+build-backend = "uv_build"
