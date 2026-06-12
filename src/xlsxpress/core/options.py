@@ -23,5 +23,6 @@ class ConversionOptions:
     input_path: Path
     nrows: int | None = None
     to_temp: bool = False
+    temp_dir: Path | None = None
     open_after: bool = False
     format_header: bool = True

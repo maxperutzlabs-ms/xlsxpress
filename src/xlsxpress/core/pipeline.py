@@ -22,7 +22,10 @@ def run_conversion(options: ConversionOptions) -> Path:
     if not input_path.is_file():
         raise FileNotFoundError(f"Input file not found: {input_path}")
 
-    output_dir = paths.get_temp_dir() if options.to_temp else input_path.parent
+    if options.to_temp:
+        output_dir = options.temp_dir if options.temp_dir else paths.get_temp_dir()
+    else:
+        output_dir = input_path.parent
     output_path = paths.resolve_output_path(input_path, output_dir)
 
     df = readers.read_table(input_path, nrows=options.nrows)
