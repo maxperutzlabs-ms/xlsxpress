@@ -7,7 +7,11 @@ authors = [
     { name = "David M. Hollenstein", email = "hollenstein.david@gmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "polars>=1.0",
+    "xlsxwriter>=3.2",
+    "typer>=0.15",
+]
 
 [project.scripts]
 xlsxpress = "xlsxpress.cli:app"
@@ -15,3 +19,4 @@ xlsxpress = "xlsxpress.cli:app"
 [build-system]
 requires = ["uv_build>=0.11.12,<0.12.0"]
 build-backend = "uv_build"
+
