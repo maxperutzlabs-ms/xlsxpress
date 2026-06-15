@@ -20,8 +20,8 @@ class ContextMenuConfig(NamedTuple):
 
 _ENTRIES: tuple[ContextMenuConfig, ...] = (
     ContextMenuConfig("XlsxPress.Open", "Open in Excel (XlsxPress)", "open"),
-    ContextMenuConfig("XlsxPress.Dialog", "Open in Excel with options...", "dialog"),
-)
+    ContextMenuConfig("XlsxPress.Dialog", "Open conversion dialog (XlsxPress)", "dialog"),
+)  # fmt: skip
 _CLASSES_ROOT = r"Software\Classes\SystemFileAssociations"
 
 
