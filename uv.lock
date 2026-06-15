@@ -2,19 +2,6 @@ version = 1
 revision = 3
 requires-python = ">=3.14"
 
-[options]
-exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
-exclude-newer-span = "P7D"
-
-[options.exclude-newer-package]
-xlsxreport = false
-anndata-contract = false
-mkeima = false
-uv = false
-msreport = false
-ruff = false
-proquant = false
-
 [[package]]
 name = "annotated-doc"
 version = "0.0.4"
@@ -170,24 +157,29 @@ wheels = [
 
 [[package]]
 name = "xlsxpress"
-version = "0.2.0"
+version = "0.2.2"
 source = { editable = "." }
 dependencies = [
-    { name = "customtkinter" },
     { name = "platformdirs" },
     { name = "polars" },
     { name = "typer" },
     { name = "xlsxwriter" },
 ]
 
+[package.optional-dependencies]
+gui = [
+    { name = "customtkinter" },
+]
+
 [package.metadata]
 requires-dist = [
-    { name = "customtkinter", specifier = ">=5.2" },
+    { name = "customtkinter", marker = "extra == 'gui'", specifier = ">=5.2" },
     { name = "platformdirs", specifier = ">=4.0" },
     { name = "polars", specifier = ">=1.0" },
     { name = "typer", specifier = ">=0.15" },
     { name = "xlsxwriter", specifier = ">=3.2" },
 ]
+provides-extras = ["gui"]
 
 [[package]]
 name = "xlsxwriter"

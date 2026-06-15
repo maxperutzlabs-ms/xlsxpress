@@ -39,6 +39,7 @@ def main() -> int:
 
     env = os.environ | {
         "PYAPP_PROJECT_PATH": wheel.name,  # embed wheel (offline install)
+        "PYAPP_PROJECT_FEATURES": "gui",
         "PYAPP_EXEC_SPEC": "xlsxpress.app.main:main",
         "PYAPP_PYTHON_VERSION": PYTHON_VERSION,
         "PYAPP_DISTRIBUTION_EMBED": "1",  # no download on first run

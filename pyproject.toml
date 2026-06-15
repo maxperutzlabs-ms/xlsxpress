@@ -13,8 +13,10 @@ dependencies = [
     "xlsxwriter>=3.2",
     "typer>=0.15",
     "platformdirs>=4.0",
-    "customtkinter>=5.2",
 ]
+
+[project.optional-dependencies]
+gui = ["customtkinter>=5.2"]
 
 [project.scripts]
 xlsxpress = "xlsxpress.cli:app"
