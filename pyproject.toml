@@ -4,8 +4,23 @@ version = "0.2.2"
 description = "Open tabular files (csv, tsv, txt, parquet) as safely formatted Excel files."
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE.md"]
 authors = [
     { name = "David M. Hollenstein", email = "hollenstein.david@gmail.com" }
+]
+keywords = ["excel", "csv", "parquet", "xlsx", "data", "conversion", "polars"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Topic :: Utilities",
+    "Topic :: Office/Business :: Financial :: Spreadsheet",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research"
 ]
 requires-python = ">=3.14"
 dependencies = [
@@ -17,6 +32,10 @@ dependencies = [
 
 [project.optional-dependencies]
 gui = ["customtkinter>=5.2"]
+
+[project.urls]
+Repository = "https://github.com/maxperutzlabs-ms/xlsxpress"
+Issues = "https://github.com/maxperutzlabs-ms/xlsxpress/issues"
 
 [project.scripts]
 xlsxpress = "xlsxpress.cli:app"
