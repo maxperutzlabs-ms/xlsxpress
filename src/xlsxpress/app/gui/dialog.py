@@ -39,7 +39,7 @@ class _OptionsDialog(ctk.CTk):
         self._header_var = ctk.BooleanVar(value=defaults.format_header)
 
         self._switch("Open in Excel after conversion", self._open_var)
-        self._switch("Save to temp directory (protects original)", self._temp_var)
+        self._switch("Save to temp directory", self._temp_var)
         self._switch("Format header row", self._header_var)
         self._switch("Preview only (limit rows)", self._preview_var)
 
