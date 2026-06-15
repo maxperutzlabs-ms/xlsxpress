@@ -17,17 +17,34 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
-FileArgument = Annotated[Path, typer.Argument(help="Tabular input file.", exists=True, dir_okay=False)]
+FileArgument = Annotated[
+    Path, typer.Argument(help="Tabular input file.", exists=True, dir_okay=False)
+]
 NrowsOption = Annotated[
-    Optional[int], typer.Option("--nrows", "-n", min=1, help="Only include the first N rows (preview).")
+    Optional[int],
+    typer.Option(
+        "--nrows", "-n", min=1, help="Only include the first N rows (preview)."
+    ),
 ]
 PlainOption = Annotated[bool, typer.Option("--plain", help="Skip header formatting.")]
 
 
 @app.command()
-def open(filename: FileArgument, nrows: NrowsOption = None, plain: PlainOption = False) -> None:
+def open(
+    filename: FileArgument,
+    nrows: NrowsOption = None,
+    plain: PlainOption = False,
+) -> None:
     """Convert to a temporary xlsx file and open it in Excel."""
-    _run(ConversionOptions(filename, nrows=nrows, to_temp=True, open_after=True, format_header=not plain))
+    _run(
+        ConversionOptions(
+            filename,
+            nrows=nrows,
+            to_temp=True,
+            open_after=True,
+            format_header=not plain,
+        )
+    )
 
 
 @app.command()
@@ -37,9 +54,17 @@ def convert(
     plain: PlainOption = False,
     temp: Annotated[bool, typer.Option("--temp", help="Write to the temp directory instead of next to the input.")] = False,
     open_after: Annotated[bool, typer.Option("--open", help="Open the result in Excel after converting.")] = False,
-) -> None:
+) -> None:  # fmt: skip
     """Convert to an xlsx file next to the original (default) or in temp."""
-    _run(ConversionOptions(filename, nrows=nrows, to_temp=temp, open_after=open_after, format_header=not plain))
+    _run(
+        ConversionOptions(
+            filename,
+            nrows=nrows,
+            to_temp=temp,
+            open_after=open_after,
+            format_header=not plain,
+        )
+    )
 
 
 @app.command()
