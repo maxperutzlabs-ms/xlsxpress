@@ -8,7 +8,7 @@ from pathlib import Path
 import customtkinter as ctk
 
 from xlsxpress.app import appdata, cleanup
-from xlsxpress.app.config import AppConfig
+from xlsxpress.app.config import AppConfig, DialogDefaults, write_config
 from xlsxpress.core.options import ConversionOptions
 from xlsxpress.core.pipeline import run_conversion
 
@@ -55,13 +55,18 @@ class _OptionsDialog(ctk.CTk):
 
         button_frame = ctk.CTkFrame(self, fg_color="transparent")
         button_frame.pack(fill="x", padx=16, pady=12)
-        ctk.CTkButton(
+
+        # Update button
+        self._update_btn = ctk.CTkButton(
             button_frame,
-            text="Open config",
-            width=100,
+            text="Update default options",
+            width=140,
             fg_color="gray",
-            command=self._open_config,
-        ).pack(side="left")
+            command=self._update_defaults,
+        )
+        self._update_btn.pack(side="left")
+
+        # Submit button
         self._submit_button = ctk.CTkButton(
             button_frame, text="Convert", command=self._submit
         )
@@ -77,10 +82,26 @@ class _OptionsDialog(ctk.CTk):
         y = (self.winfo_screenheight() - height) // 2
         self.geometry(f"{width}x{height}+{x}+{y}")
 
-    def _open_config(self) -> None:
-        from xlsxpress.core.excel import open_in_default_app  # works for any file
-
-        open_in_default_app(appdata.get_config_path())
+    def _update_defaults(self) -> None:
+        try:
+            nrows = int(self._nrows_entry.get())
+            if nrows < 1:
+                raise ValueError
+        except ValueError:
+            self._status_label.configure(text="Rows must be a positive integer.")
+            return
+        updated = AppConfig(
+            dialog=DialogDefaults(
+                open_after=self._open_var.get(),
+                preview=self._preview_var.get(),
+                nrows=nrows,
+                to_temp=self._temp_var.get(),
+                format_header=self._header_var.get(),
+            ),
+            cleanup=self._config.cleanup,
+        )
+        write_config(updated)
+        self._status_label.configure(text="Default options saved.")
 
     def _submit(self) -> None:
         try:
