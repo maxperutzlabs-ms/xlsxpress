@@ -67,12 +67,6 @@ def convert(
     )
 
 
-@app.command()
-def dialog(filename: FileArgument) -> None:
-    """Open the conversion options dialog for a file (phase two)."""
-    typer.echo(f"[xlsxpress] options dialog for: {filename} (not implemented yet)")
-
-
 def _run(options: ConversionOptions) -> None:
     """Run the pipeline, reporting errors as exit codes instead of tracebacks."""
     try:
