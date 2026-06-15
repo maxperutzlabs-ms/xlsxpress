@@ -118,6 +118,8 @@ xlsxpress convert input.tsv --open
 
 The Windows app extends XlsxPress with **Windows File Context Menu integration**, allowing supported files to be opened or converted directly from File Explorer without using the command line.
 
+![Context menu open demo](https://github.com/maxperutzlabs-ms/xlsxpress/blob/media/docs/screenshots/context-menu-open-demo.gif)
+
 Installation:
 
 - Download the latest `.exe` from GitHub Releases
