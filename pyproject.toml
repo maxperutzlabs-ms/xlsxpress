@@ -3,6 +3,7 @@ name = "xlsxpress"
 version = "0.2.2"
 description = "Open tabular files (csv, tsv, txt, parquet) as safely formatted Excel files."
 readme = "README.md"
+license = "MIT"
 authors = [
     { name = "David M. Hollenstein", email = "hollenstein.david@gmail.com" }
 ]
@@ -12,7 +13,8 @@ dependencies = [
     "xlsxwriter>=3.2",
     "typer>=0.15",
     "platformdirs>=4.0",
-    "customtkinter>=5.2",]
+    "customtkinter>=5.2",
+]
 
 [project.scripts]
 xlsxpress = "xlsxpress.cli:app"
