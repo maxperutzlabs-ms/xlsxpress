@@ -16,7 +16,7 @@ _HEADER_FORMAT = {
     "bottom": 0,
     "top": 0,
 }
-_MAX_COL_PIXELS: int = 200
+_MAX_COL_PIXELS: int = 125
 _MIN_COL_PIXELS: int = 40
 
 
