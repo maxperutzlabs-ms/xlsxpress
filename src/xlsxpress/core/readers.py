@@ -8,7 +8,7 @@ import polars as pl
 
 #: Extensions read as character-separated text, with their default separator.
 #: For ".txt" the separator is sniffed from the file content.
-_SEPARATED_TEXT_EXTENSIONS = {".csv": ",", ".tsv": "\t", ".txt": None}
+_SEPARATED_TEXT_EXTENSIONS = {".csv": None, ".tsv": "\t", ".txt": None}
 
 SUPPORTED_EXTENSIONS = frozenset(_SEPARATED_TEXT_EXTENSIONS) | {".parquet"}
 
