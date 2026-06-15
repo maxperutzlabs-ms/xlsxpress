@@ -146,6 +146,8 @@ def self_update() -> tuple[bool, str]:
     )
     new_version = version_result.stdout.strip() or package_version()
     state = read_state()
+    if state.version == new_version:
+        return True, f"Already up to date (version {new_version})."
     state.version = new_version
     write_state(state)
     return True, f"Updated to version {new_version}."
