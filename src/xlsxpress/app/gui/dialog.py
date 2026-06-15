@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import tkinter as tk
 from pathlib import Path
 
 import customtkinter as ctk
@@ -65,6 +66,10 @@ class _OptionsDialog(ctk.CTk):
             command=self._update_defaults,
         )
         self._update_btn.pack(side="left")
+        self._bind_tooltip(
+            self._update_btn,
+            'Sets the defaults used by the context menu action\n"Open in Excel (XlsxPress)"',
+        )
 
         # Submit button
         self._submit_button = ctk.CTkButton(
@@ -132,6 +137,35 @@ class _OptionsDialog(ctk.CTk):
             self.after(0, self._on_error, str(error))
         else:
             self.after(0, self.destroy)
+
+    def _bind_tooltip(self, widget: ctk.CTkBaseClass, text: str) -> None:
+        tip: list[tk.Toplevel | None] = [None]
+
+        def show(event: tk.Event) -> None:
+            if tip[0]:
+                return
+            x = widget.winfo_rootx() + 20
+            y = widget.winfo_rooty() + widget.winfo_height() + 4
+            win = tk.Toplevel(widget)
+            win.wm_overrideredirect(True)
+            win.wm_geometry(f"+{x}+{y}")
+            tk.Label(
+                win,
+                text=text,
+                background="#e0e0e0",
+                relief="solid",
+                borderwidth=1,
+                font=("TkDefaultFont", 9),
+            ).pack()
+            tip[0] = win
+
+        def hide(event: tk.Event) -> None:
+            if tip[0]:
+                tip[0].destroy()
+                tip[0] = None
+
+        widget.bind("<Enter>", show)
+        widget.bind("<Leave>", hide)
 
     def _on_error(self, message: str) -> None:
         self._submit_button.configure(state="normal")
