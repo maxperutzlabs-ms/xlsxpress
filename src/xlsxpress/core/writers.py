@@ -26,6 +26,7 @@ def write_excel(
     """Write a DataFrame to an xlsx file and return the output path.
 
     Replaces NaN with blank cells to avoid Excel showing formula errors `=#NUM!`.
+    Floating-point columns use Excel's `General` format to avoid fixed decimal rounding.
     Automatically adjusts column widths to fit content, capped to a max width of 200
     pixels to avoid excessively wide columns.
 
@@ -42,6 +43,7 @@ def write_excel(
             header_format=_HEADER_FORMAT if format_header else None,
             freeze_panes=(1, 0) if format_header else None,
             autofit=True,
+            dtype_formats={pl.Float32: "General", pl.Float64: "General"},
         )
         _apply_capped_autofit(workbook, df)
     finally:
