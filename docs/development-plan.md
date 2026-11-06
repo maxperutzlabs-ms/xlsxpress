@@ -23,14 +23,16 @@ Status: 2026-11-06. Based on the project review of the same date.
 | Excel writer | Own xlsxwriter code, `constant_memory` mode | Full control per data type; no surprises from polars' Excel defaults (e.g. its old 3-decimal default). |
 | Strings | Always written as text | `strings_to_formulas`, `strings_to_urls` and `strings_to_numbers` are off. `=1+1` stays text. |
 | Integers > 15 digits | Written as numbers, like Excel itself | Excel keeps only 15 significant digits and replaces the rest with zeros. Documented as a limitation. Keep the writer's type mapping flexible, so this can later become text or an option. |
+| Floats | Numbers in Excel's `General` format, at most 16 significant digits | xlsxwriter writes numbers with 16 significant digits; Excel shows 15. A value that needs 17 digits for an exact round trip can differ in its last binary digit (relative difference below 1e-15), e.g. `0.1 + 0.2` is written as `0.3`. Float32 values are converted through their shortest decimal text, so `0.1` stays `0.1`. Decimals are written as numbers. |
 | `inf`, `-inf` | Text `inf`, `-inf` | Excel has no infinity value. |
 | `NaN`, null | Blank cell | Current behaviour. |
-| Dates and datetimes (Parquet) | Excel dates with a date or datetime format | Parquet types are explicit, not guessed, so this is safe and keeps sorting and date calculations working. Excel's resolution is 1 ms; finer precision is lost. Documented. Text files are never parsed as dates. |
-| Timezone-aware datetimes | Text in ISO 8601 with offset | Documented; Excel has no timezones. |
-| Time, duration, list, struct, binary columns | Text | e.g. `[1, 2]`. |
-| Header formatting | Bold, wrapped, frozen first row, plain autofilter | No Excel Table. `--plain` turns all of this off. |
-| Column widths | Estimated from header and first rows, capped | Replaces polars autofit and the per-cell width loop. |
-| Excel limits | Too many rows or columns: clear error before writing. Strings > 32,767 characters: truncated with a warning. | |
+| Booleans | Excel booleans (`TRUE`, `FALSE`) | |
+| Dates and datetimes (Parquet) | Excel dates with a date or datetime format | Parquet types are explicit, not guessed, so this is safe and keeps sorting and date calculations working. Format `yyyy-mm-dd`, `yyyy-mm-dd hh:mm:ss`, or with `.000` when a column has fractional seconds. Excel's resolution is 1 ms; finer precision is lost. Dates before 1900-03-01 are written as ISO 8601 text, because Excel's 1900 leap year bug makes earlier serial dates unreliable. Documented. Text files are never parsed as dates. |
+| Timezone-aware datetimes | Text in ISO 8601 with offset, e.g. `2024-01-02T10:00:00+01:00` | Documented; Excel has no timezones. Converted by polars, which needs no `tzdata` package on Windows. |
+| Time, duration, list, struct, binary columns | Text | Time as ISO 8601 (`10:30:05`), duration like `1 day, 0:00:05`, lists and structs like `[1, 2]` and `{'a': 1}`, binary as hexadecimal. |
+| Header formatting | Bold, wrapped, frozen first row, plain autofilter | No Excel Table. `--plain` turns all of this off. Column names are always written as text, and empty names stay empty. |
+| Column widths | Estimated from header and first 1,000 rows, between 40 and 125 pixels | Replaces polars autofit and the per-cell width loop. Date columns are always wide enough for the full date, because Excel shows `###` for a date that doesn't fit. |
+| Excel limits | Too many rows or columns: `ExcelLimitError` before writing, no file is created. Strings > 32,767 characters: truncated with a `ConversionWarning`. | |
 | Install | uv tool (recommended), pip (supported) | PyApp exe dropped. |
 | Existing PyApp installs | Low priority: a short migration note | Only one or two users. Re-registering overwrites the same registry keys; the old exe and its Python environment have to be removed by hand. |
 | Context menu | HKCU `SystemFileAssociations`, command runs `pythonw.exe -m xlsxpress.app ...` from the install environment | `pythonw` avoids a console window. Warn when registering from an environment that isn't a tool install. |
@@ -44,11 +46,12 @@ Bugs in code that will be removed are marked *(removed with PyApp)* and won't be
 
 - [x] Context menu "Open in Excel" cuts the data to `nrows` rows even when preview is off
 - [ ] Leading zeros, decimals like `1.10` and E-notation IDs are changed by type inference
-- [ ] Strings starting with `=` become formulas
-- [ ] `inf` and `-inf` crash the conversion
+- [x] Strings starting with `=` become formulas
+- [x] `inf` and `-inf` crash the conversion
+- [x] Timezone-aware datetime columns crash the conversion on Windows (missing `tzdata`)
 - [ ] UTF-16 files produce garbage without an error; Latin-1 files fail
-- [ ] Strings over 32,767 characters are truncated without a warning
-- [ ] Empty and duplicate headers are renamed without a warning
+- [x] Strings over 32,767 characters are truncated without a warning
+- [ ] Duplicate headers are renamed without a warning (empty headers now stay empty)
 - [ ] Polars errors are not caught (CLI traceback, generic GUI error box)
 - [ ] A type change after row 10,000 fails the conversion
 - [ ] Temp files can clash with an open workbook of the same name
@@ -75,7 +78,7 @@ Every step ends with green checks (ruff, pyrefly, pytest) and its own commit or 
 3. **Hotfix for the `nrows` bug** in the current PyApp app. Not released right away; few users are affected.
 4. **Writer.** New `writers.py` with the type mapping, Excel limits, column widths and header formatting from the decisions table. Thorough unit tests per data type and limit. Remove `polars.write_excel`.
 5. **Reader.** Text-safe type inference, encoding detection, error wrapping and the late type change. Thorough unit tests.
-6. **Pipeline and paths.** Conversion error type, unique temp names, one temp folder for CLI and app, cleanup fixes, read-only recommendation for temp files. First integration tests: input file → `.xlsx`, checked cell by cell.
+6. **Pipeline and paths.** Conversion error type, unique temp names, one temp folder for CLI and app, cleanup fixes, read-only recommendation for temp files. Show conversion warnings (e.g. truncated text) in the CLI and the GUI. First integration tests: input file → `.xlsx`, checked cell by cell.
 7. **CLI.** Switch from typer to cyclopts, add `--version`, consistent messages and help texts.
 8. **Distribution switch.** `context-menu` subcommand, a generalized `context_menu.py`, `xlsxpress.app` entry point for `open` and `dialog`. Remove the PyApp code. Short migration note for existing PyApp installs.
 9. **Dialog.** Show the output location, enable the row field only with preview, show full error messages.
