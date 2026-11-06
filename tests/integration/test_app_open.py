@@ -5,9 +5,9 @@ from zipfile import ZipFile
 
 import pytest
 
-from xlsxpress.app import appdata
 from xlsxpress.app import main as app_main
-from xlsxpress.app.config import AppConfig, CleanupPolicy, DialogDefaults, write_config
+from xlsxpress.config import AppConfig, CleanupPolicy, DialogDefaults, write_config
+from xlsxpress.core import paths
 
 pytestmark = pytest.mark.integration
 
@@ -22,20 +22,16 @@ def _fail_on_error_box(message: str) -> None:
     pytest.fail(f"Error box shown: {message}")
 
 
-@pytest.fixture
-def appdata_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    directory = tmp_path / "appdata"
-    monkeypatch.setattr(appdata, "get_appdata_dir", lambda: directory)
+@pytest.fixture(autouse=True)
+def no_logging_or_error_boxes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(app_main, "_setup_logging", lambda: None)
     monkeypatch.setattr(app_main, "_show_error_box", _fail_on_error_box)
-    appdata.ensure_directory_structure()
-    return directory
 
 
 class TestMainOpen:
     @pytest.mark.parametrize(("preview", "expected_rows"), [(False, 150), (True, 100)])
     def test_open_limits_rows_only_when_preview_is_enabled(
-        self, tmp_path: Path, appdata_dir: Path, preview: bool, expected_rows: int
+        self, tmp_path: Path, preview: bool, expected_rows: int
     ) -> None:
         input_path = tmp_path / "data.tsv"
         input_path.write_text("value\n" + "".join(f"{i}\n" for i in range(150)), encoding="utf-8")
@@ -44,13 +40,13 @@ class TestMainOpen:
 
         exit_code = app_main.main(["open", str(input_path)])
 
-        outputs = list(appdata.get_temp_dir().glob("*.xlsx"))
+        outputs = list(paths.get_temp_dir().glob("*.xlsx"))
         assert exit_code == 0
         assert len(outputs) == 1
         assert _count_data_rows(outputs[0]) == expected_rows
 
     def test_open_shows_the_conversion_error_message_in_an_error_box(
-        self, tmp_path: Path, appdata_dir: Path, monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         input_path = tmp_path / "data.tsv"
         input_path.write_text("a\tb\n1\t2\t3\n", encoding="utf-8")
@@ -64,7 +60,7 @@ class TestMainOpen:
         assert "more tab-separated fields than the header row" in messages[0]
 
     def test_open_shows_conversion_warnings_in_a_warning_box(
-        self, tmp_path: Path, appdata_dir: Path, monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         input_path = tmp_path / "data.tsv"
         input_path.write_text("a\ta\n1\t2\n", encoding="utf-8")

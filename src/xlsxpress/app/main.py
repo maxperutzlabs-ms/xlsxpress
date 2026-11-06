@@ -1,10 +1,11 @@
-"""Entry point for the pyapp executable (NOT the standalone CLI).
+"""Entry point of the context menu entries, run as `pythonw -m xlsxpress.app`.
 
-Routing:
-    (no args)        -> launcher GUI (after install check/repair)
-    open <file>      -> convert to appdata temp + open in Excel
-    dialog <file>    -> options dialog GUI
-    --version        -> print version (used by the launcher after updates)
+Commands:
+    open FILE    Convert with the saved default options and open the result.
+    dialog FILE  Show the conversion dialog.
+
+The app has no console, so errors and warnings are shown in message boxes, and
+unexpected errors are logged to the log file.
 """
 
 from __future__ import annotations
@@ -12,49 +13,47 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
-from xlsxpress.app import appdata, config, installation
+from xlsxpress import config
 
 logger = logging.getLogger("xlsxpress.app")
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="xlsxpress-app", add_help=True)
-    parser.add_argument(
-        "--version", action="version", version=installation.package_version()
-    )
-    subparsers = parser.add_subparsers(dest="command")
+def main(argv: Sequence[str] | None = None) -> int:
+    """Run the app.
+
+    Args:
+        argv: Command line arguments. If None (default), uses the process arguments.
+
+    Returns:
+        The exit code: 0 on success, 1 on an error.
+    """
+    parser = argparse.ArgumentParser(prog="python -m xlsxpress.app")
+    subparsers = parser.add_subparsers(dest="command", required=True)
     for name in ("open", "dialog"):
-        sub = subparsers.add_parser(name)
-        sub.add_argument("filename", type=Path)
+        subparsers.add_parser(name).add_argument("filename", type=Path)
     args = parser.parse_args(argv)
 
     _setup_logging()
     try:
         if args.command == "open":
             return _run_open(args.filename)
-        if args.command == "dialog":
-            return _run_dialog(args.filename)
-        return _run_launcher()
+        return _run_dialog(args.filename)
     except Exception:  # noqa: BLE001 - last resort: log + GUI-visible error
         logger.exception("Unhandled error")
-        _show_error_box(f"XlsxPress failed. See log file:\n{appdata.get_log_path()}")
+        _show_error_box(f"XlsxPress failed. See the log file:\n{config.get_log_path()}")
         return 1
 
 
 def _run_open(filename: Path) -> int:
-    """Context menu 'Open in Excel': convert with the saved default options.
-
-    Conversion errors and warnings are shown in a message box, because the context
-    menu has no console.
-    """
+    """Context menu 'Open in Excel': convert with the saved default options."""
     from xlsxpress.core.errors import ConversionError
     from xlsxpress.core.options import ConversionOptions
     from xlsxpress.core.pipeline import run_conversion
 
-    appdata.ensure_directory_structure()
     app_config = config.load_config()
     options = ConversionOptions(
         input_path=filename,
@@ -78,35 +77,25 @@ def _run_open(filename: Path) -> int:
 def _run_dialog(filename: Path) -> int:
     from xlsxpress.app.gui.dialog import run_dialog
 
-    appdata.ensure_directory_structure()
     run_dialog(filename, config.load_config())
     return 0
 
 
-def _run_launcher() -> int:
-    from xlsxpress.app.gui.launcher import run_launcher
-
-    state = installation.check_and_repair()  # step 1: verify/fix before GUI
-    run_launcher(state)
-    return 0
-
-
 def _setup_logging() -> None:
-    appdata.ensure_directory_structure()
+    log_path = config.get_log_path()
+    log_path.parent.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
-        filename=appdata.get_log_path(),
+        filename=log_path,
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
 
 def _show_error_box(message: str) -> None:
-    """Show an error in a message box; the GUI app has no visible console."""
     _show_message_box("error", message)
 
 
 def _show_warning_box(message: str) -> None:
-    """Show conversion warnings in a message box."""
     _show_message_box("warning", message)
 
 
@@ -124,7 +113,3 @@ def _show_message_box(kind: Literal["error", "warning"], message: str) -> None:
         root.destroy()
     except Exception:  # noqa: BLE001 - headless fallback
         print(message, file=sys.stderr)
-
-
-if __name__ == "__main__":
-    sys.exit(main())

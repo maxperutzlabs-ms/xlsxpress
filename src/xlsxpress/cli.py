@@ -10,7 +10,8 @@ from typing import Annotated
 from cyclopts import App, Parameter, validators
 
 from xlsxpress import __VERSION__
-from xlsxpress.app.config import load_config
+from xlsxpress.app import context_menu
+from xlsxpress.config import get_config_path, load_config
 from xlsxpress.core.errors import ConversionError
 from xlsxpress.core.options import ConversionOptions
 from xlsxpress.core.pipeline import run_conversion
@@ -20,6 +21,12 @@ app = App(
     help="Open tabular files (csv, tsv, txt, parquet) as safely formatted Excel files.",
     version=__VERSION__,
 )
+
+context_menu_app = App(
+    name="context-menu",
+    help="Add XlsxPress to the File Explorer context menu (Windows only).",
+)
+app.command(context_menu_app)
 
 _Flag = Parameter(negative_bool=(), show_default=False)
 _Nrows = Annotated[
@@ -111,3 +118,121 @@ def _run(options: ConversionOptions) -> int:
         print(f"Warning: {message}", file=sys.stderr)
     print(f"Wrote {result.output_path}")
     return 0
+
+
+@context_menu_app.command
+def register() -> int:
+    """Add the XlsxPress entries to the context menu of csv, tsv, txt and parquet files.
+
+    The entries run XlsxPress from this installation. Running the command again
+    replaces existing entries, including those of an older installation.
+    """
+    if not _check_platform():
+        return 1
+    old_entries = context_menu.read_entries()
+    try:
+        pythonw = context_menu.find_pythonw()
+    except FileNotFoundError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+    if not context_menu.is_uv_tool_environment():
+        print(
+            f"Warning: XlsxPress is not running from a uv tool installation "
+            f"('{sys.prefix}'). If this environment is deleted or moved, the "
+            "context menu entries stop working. Install XlsxPress with "
+            "'uv tool install xlsxpress' and register from there.",
+            file=sys.stderr,
+        )
+    try:
+        context_menu.register(pythonw)
+    except OSError as error:
+        print(
+            f"Error: Could not write the context menu entries: {error}", file=sys.stderr
+        )
+        return 1
+    extensions = ", ".join(context_menu.EXTENSIONS)
+    print(f"Registered the context menu entries for {extensions} files:")
+    for entry in context_menu.ENTRIES:
+        print(f"  {entry.label}")
+    print('On Windows 11, they are under "Show more options".')
+    _print_pyapp_note(old_entries, replaced=True)
+    return 0
+
+
+@context_menu_app.command
+def unregister() -> int:
+    """Remove the XlsxPress entries from the context menu."""
+    if not _check_platform():
+        return 1
+    removed = context_menu.unregister()
+    if removed:
+        print(f"Removed {removed} context menu entries.")
+    else:
+        print("No context menu entries were registered.")
+    return 0
+
+
+@context_menu_app.command
+def status() -> int:
+    """Show the registered context menu entries and the config file location."""
+    if not _check_platform():
+        return 1
+    entries = context_menu.read_entries()
+    total = len(context_menu.EXTENSIONS) * len(context_menu.ENTRIES)
+    if not entries:
+        print("Context menu: not registered")
+    else:
+        print(f"Context menu: {len(entries)} of {total} entries registered")
+        print("Commands:")
+        for command in dict.fromkeys(entry.command for entry in entries):
+            print(f"  {command}")
+    _print_status_problems(entries, total)
+    config_path = get_config_path()
+    missing = "" if config_path.is_file() else " (not created yet)"
+    print(f"Config file: {config_path}{missing}")
+    return 0
+
+
+def _check_platform() -> bool:
+    if context_menu.is_supported_platform():
+        return True
+    print("Error: The context menu is only available on Windows.", file=sys.stderr)
+    return False
+
+
+def _print_status_problems(
+    entries: list[context_menu.RegisteredEntry], total: int
+) -> None:
+    """Warn about missing entries and entries that run a missing program."""
+    register_hint = "Run 'xlsxpress context-menu register' to fix it."
+    if entries and len(entries) < total:
+        print(f"Warning: Some entries are missing. {register_hint}", file=sys.stderr)
+    programs = dict.fromkeys(entry.program for entry in entries if not entry.is_pyapp)
+    for program in programs:
+        if program is None or not program.is_file():
+            print(
+                f"Warning: The entries run '{program}', which does not exist, so they "
+                f"do not work. {register_hint}",
+                file=sys.stderr,
+            )
+    _print_pyapp_note(entries, replaced=False)
+
+
+def _print_pyapp_note(
+    entries: list[context_menu.RegisteredEntry], *, replaced: bool
+) -> None:
+    """Explain how to remove an old PyApp installation found in `entries`."""
+    pyapp_programs = dict.fromkeys(entry.program for entry in entries if entry.is_pyapp)
+    for program in pyapp_programs:
+        if replaced:
+            action = "Its context menu entries were replaced."
+        else:
+            action = (
+                "Run 'xlsxpress context-menu register' to replace its context menu "
+                "entries."
+            )
+        print(
+            f"Note: Found an old XlsxPress installation ('{program}'). {action} "
+            f"To remove it, run '\"{program}\" self remove', which deletes the Python "
+            "environment it installed, then delete the exe file."
+        )

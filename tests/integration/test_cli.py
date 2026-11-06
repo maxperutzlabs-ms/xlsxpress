@@ -6,9 +6,8 @@ from pathlib import Path
 import pytest
 
 from xlsxpress import __VERSION__
-from xlsxpress.app import appdata
-from xlsxpress.app.config import AppConfig, CleanupPolicy, DialogDefaults, write_config
 from xlsxpress.cli import main
+from xlsxpress.config import AppConfig, CleanupPolicy, DialogDefaults, write_config
 from xlsxpress.core import excel, paths
 
 pytestmark = pytest.mark.integration
@@ -117,7 +116,6 @@ class TestOpen:
         assert not input_file.with_suffix(".xlsx").exists()
 
     def test_open_uses_the_cleanup_policy_from_the_app_config(self, input_file: Path, opened: list[Path]) -> None:
-        appdata.ensure_directory_structure()
         write_config(AppConfig(dialog=DialogDefaults(), cleanup=CleanupPolicy(max_files=1)))
 
         for _ in range(3):

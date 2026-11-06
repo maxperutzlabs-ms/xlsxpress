@@ -41,9 +41,10 @@ Status: 2026-11-06. Based on the project review of the same date.
 | Temp files | One temp folder for CLI, context menu and dialog: `platformdirs.user_cache_path("xlsxpress", appauthor=False) / "temp"`, e.g. `%LOCALAPPDATA%\xlsxpress\Cache\temp`. Names get a timestamp (`data_2026-11-06_142530.xlsx`), because Excel can't open two workbooks with the same name, even from different folders. Temp files are disposable, a quick way to look at a file in Excel, and open normally without a read-only prompt. | The old folders (`%TEMP%\xlsxpress`, `<appdata>\temp`) are no longer used. A read-only recommendation was dropped on 2026-11-06, because Excel asked about it on every "Open in Excel". To keep edits, save the workbook somewhere else. |
 | Temp cleanup | Runs before each conversion to the temp folder, from the CLI too: deletes files older than `max_age_days` (14), then the oldest above `max_files` (100). The app config can override both. Age is the file's modification time. All `*.xlsx` files directly in the temp folder count, edited or not; Excel's lock files (`~$name.xlsx`), other files and subfolders are left alone. | Files that vanish or are locked (open in Excel) during cleanup are skipped. The README must say that temp files are deleted, edited or not. |
 | Conversion warnings | Collected by the pipeline and returned with the result (`ConversionResult.warnings`), message text only. The CLI prints `Warning: ...` to stderr; the context menu and the dialog show them in a message box. | Conversion errors show their message in the context menu's error box; the log keeps the traceback. |
-| Install | uv tool (recommended), pip (supported) | PyApp exe dropped. |
-| Existing PyApp installs | Low priority: a short migration note | Only one or two users. Re-registering overwrites the same registry keys; the old exe and its Python environment have to be removed by hand. |
-| Context menu | HKCU `SystemFileAssociations`, command runs `pythonw.exe -m xlsxpress.app ...` from the install environment | `pythonw` avoids a console window. Warn when registering from an environment that isn't a tool install. |
+| Install | uv tool (recommended), pip (supported) | PyApp exe dropped. `customtkinter` is a required dependency; there is no `gui` extra, so `uv tool install xlsxpress` gives the full feature set. |
+| Existing PyApp installs | Low priority: a short migration note | Only one or two users. Re-registering overwrites the same registry keys and removes the old `Icon` value. `register` and `status` detect entries that run an `xlsxpress.exe` and tell the user to run `"<exe>" self remove` (PyApp's command to delete its Python environment), then delete the exe. Not yet checked on a real PyApp install. |
+| Context menu | HKCU `SystemFileAssociations`, command runs `pythonw.exe -m xlsxpress.app ...` from the install environment | `pythonw` avoids a console window; it is found next to `sys.executable`. Registering from an environment that isn't a uv tool install gives a warning, not an error, so a development venv can still register. A uv tool environment is recognised by its `uv-receipt.toml`, which works with any `UV_TOOL_DIR`. No menu icon. |
+| Settings | `xlsxpress.config`: config file and log file, shared by CLI and app | Both stay in `platformdirs.user_data_dir("xlsxpress", "perutzms")`, e.g. `%LOCALAPPDATA%\perutzms\xlsxpress`. The CLI no longer imports its settings from the app package. |
 | Python | `>= 3.12` | Matches rawtrace-qc. |
 | CI | GitHub Actions like rawtrace-qc: lint job plus test matrix on Linux, Windows, macOS | Registry tests run on Windows only. |
 | CD | Last step: publish to PyPI on a version tag (trusted publishing) | |
@@ -70,10 +71,10 @@ Bugs in code that will be removed are marked *(removed with PyApp)* and won't be
 - [ ] Dialog gives no output location after converting
 - [ ] Dialog row field stays active when preview is off
 - [x] CLI has no `--version`
-- [ ] `xlsxpress-app` crashes without the `gui` extra *(removed with PyApp)*
-- [ ] Uninstall leaves the PyApp environment behind *(removed with PyApp)*
-- [ ] Downloading a newer exe doesn't update the installed one *(removed with PyApp)*
-- [ ] Build script picks the wrong cached PyApp version *(removed with PyApp)*
+- [x] `xlsxpress-app` crashes without the `gui` extra *(removed with PyApp)*
+- [x] Uninstall leaves the PyApp environment behind *(removed with PyApp)*
+- [x] Downloading a newer exe doesn't update the installed one *(removed with PyApp)*
+- [x] Build script picks the wrong cached PyApp version *(removed with PyApp)*
 - [ ] README: wrong install commands, missing install step, broken GIF URL on PyPI, label mismatch, CI claim without a workflow
 - [ ] Outdated docstrings
 - [x] Dead code (`registered_exe_path`)
@@ -82,7 +83,7 @@ Bugs in code that will be removed are marked *(removed with PyApp)* and won't be
 
 Every step ends with green checks (ruff, pyrefly, pytest) and its own commit or commits. For a bug, the test is written first and must fail; the fix follows in the same commit, so the branch never carries failing tests. Work happens on the `dev` branch. Tick fixed bugs in the [bug list](#bugs-to-fix) in the same commit, and update the decisions table when a step settles a decision.
 
-Steps 1–7 are done. Steps 8–11 below list the scope, the suggested design and what "done" means. A *suggested* design is a starting point: if the code shows a better way, take it and record the decision in the table.
+Steps 1–8 are done. Steps 9–11 below list the scope, the suggested design and what "done" means. A *suggested* design is a starting point: if the code shows a better way, take it and record the decision in the table.
 
 1. **Tooling.** Done.
 2. **CI.** Done.
@@ -91,27 +92,7 @@ Steps 1–7 are done. Steps 8–11 below list the scope, the suggested design an
 5. **Reader.** Done.
 6. **Pipeline, paths and temp files.** Done. Its decisions are in the table (output files, temp files, temp cleanup, conversion warnings).
 7. **CLI: typer → cyclopts.** Done. `xlsxpress.cli:main` returns the exit code, as in rawtrace-qc: 0 for success, 1 for a conversion error (including a missing input file), cyclopts' code for invalid arguments. `Error: ...` and `Warning: ...` go to stderr as plain text, without color, and `Wrote <path>` to stdout.
-
-### 8. Distribution switch: PyApp → uv tool
-
-Goal: `uv tool install "xlsxpress[gui]"` plus `xlsxpress context-menu register` gives the full feature set, and all PyApp code is gone.
-
-Scope:
-
-- **App entry point.** Add `xlsxpress/app/__main__.py`, so `python -m xlsxpress.app open|dialog FILE` works. The launcher route (no arguments) goes away.
-- **Generalize `context_menu.py`.** `register()` takes the command to run instead of an exe path, building `"<python>\pythonw.exe" -m xlsxpress.app open "%1"` from `sys.executable` (`pythonw.exe` sits next to `python.exe` in a uv venv's `Scripts` folder; checked). The registry key root stays a module constant, so tests can point it at a test key.
-- **CLI subcommands:**
-  - `xlsxpress context-menu register`: register both entries (Open in Excel, Open conversion dialog) for `.csv`, `.tsv`, `.txt` and `.parquet`. Warn if `sys.prefix` is not inside the uv tool directory (default `%APPDATA%\uv\tools`, or `UV_TOOL_DIR`), since a project or conda environment may be deleted later. Check that the `gui` extra is installed, and if not, say how to install it.
-  - `xlsxpress context-menu unregister`: remove all entries; idempotent.
-  - `xlsxpress context-menu status`: show whether entries exist, the registered command, whether its Python still exists, and the config file path.
-  - On macOS and Linux the subcommands exit with a clear "only available on Windows" message.
-- **Remove PyApp code.** `app/installation.py`, `app/gui/launcher.py`, `scripts/build_app.py`, the `xlsxpress-app` console script, the install manifest (`install.toml`) and the exe path helpers in `appdata.py`. Keep `config.toml` and the log file in the appdata folder.
-- **Migration.** If `status` or `register` finds entries pointing at an old `xlsxpress.exe`, say so: `register` overwrites them, and the old exe (`%LOCALAPPDATA%\perutzms\xlsxpress`) and PyApp's environment (under `%LOCALAPPDATA%\pyapp`) can be deleted by hand. Check both paths on a real PyApp install before writing them into messages. Low priority; one or two users.
-- **Open question for David:** keep `customtkinter` in the `gui` extra, or make it a required dependency, since the context menu dialog needs it? A required dependency means one less install mistake.
-
-Tests: registry round trip (register, status, unregister) against a test key under `HKCU\Software\xlsxpress-tests`, never the real `SystemFileAssociations` key; Windows only (`skipif`). Unit tests for building the command string and for the tool-environment check.
-
-Bugs: the four *(removed with PyApp)* items are closed by deleting the code; tick them.
+8. **Distribution switch: PyApp → uv tool.** Done. `uv tool install xlsxpress` plus `xlsxpress context-menu register` gives the full feature set. The context menu runs `pythonw.exe -m xlsxpress.app open|dialog FILE` (`xlsxpress/app/__main__.py`); the app has no launcher route anymore. `xlsxpress context-menu register | unregister | status` manage the entries; on macOS and Linux they exit with an error. The PyApp code is gone: installer, launcher window, self-update, build script, install manifest, `xlsxpress-app` script and exe path helpers. `customtkinter` became a required dependency and the `gui` extra is gone, so the planned check for the extra wasn't needed. Config and log moved from `app/appdata.py` and `app/config.py` to `xlsxpress/config.py`, so the CLI reads its settings without the app package; the CLI still imports `app.context_menu` for its `context-menu` commands, which is where that code belongs. Checked with a real `uv tool install .`: `register` writes the expected commands and `status` reads them back. The right-click entries themselves still need a look by hand.
 
 ### 9. Conversion dialog
 
@@ -134,7 +115,7 @@ Goal: a non-developer can install, use, update and remove XlsxPress from the REA
 
 Scope:
 
-- **README:** what it does and why (the Excel conversion problem in two sentences); install with uv (installing uv itself, `uv tool install "xlsxpress[gui]"`, `xlsxpress context-menu register`), with pip as an alternative; usage from the CLI and from File Explorer (including Windows 11's "Show more options"); where temp files go and that they are deleted after 14 days or beyond 100 files, edited or not, so edits must be saved elsewhere; update (`uv tool upgrade xlsxpress`); uninstall (unregister first, then `uv tool uninstall`); manual registry cleanup commands for recovery.
+- **README:** what it does and why (the Excel conversion problem in two sentences); install with uv (installing uv itself, `uv tool install xlsxpress`, `xlsxpress context-menu register`), with pip as an alternative; usage from the CLI and from File Explorer (including Windows 11's "Show more options"); where temp files go and that they are deleted after 14 days or beyond 100 files, edited or not, so edits must be saved elsewhere; update (`uv tool upgrade xlsxpress`); uninstall (unregister first, then `uv tool uninstall`); manual registry cleanup commands for recovery.
 - **Conversion rules and limitations:** a user-facing summary of the decisions table: what stays text, what becomes a number or date, the 15-digit limit, missing values, `inf`, timezones, encodings, Excel limits. Suggested: `docs/conversion-rules.md`, linked from the README.
 - Fix the README bugs: install commands, the GIF URL (a raw URL, so PyPI shows it), context menu labels matching the code, and only claim CI/CD that exists.
 - `CHANGELOG.md` in the format used by rawtrace-qc, starting with 0.4.0.

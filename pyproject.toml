@@ -30,10 +30,8 @@ dependencies = [
     "xlsxwriter>=3.2",
     "platformdirs>=4.0",
     "cyclopts>=4.8",
+    "customtkinter>=5.2",
 ]
-
-[project.optional-dependencies]
-gui = ["customtkinter>=5.2"]
 
 [project.urls]
 Repository = "https://github.com/maxperutzlabs-ms/xlsxpress"
@@ -41,7 +39,6 @@ Issues = "https://github.com/maxperutzlabs-ms/xlsxpress/issues"
 
 [project.scripts]
 xlsxpress = "xlsxpress.cli:main"
-xlsxpress-app = "xlsxpress.app.main:main"
 
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14.0"]

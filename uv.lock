@@ -376,15 +376,11 @@ name = "xlsxpress"
 version = "0.3.0"
 source = { editable = "." }
 dependencies = [
+    { name = "customtkinter" },
     { name = "cyclopts" },
     { name = "platformdirs" },
     { name = "polars" },
     { name = "xlsxwriter" },
-]
-
-[package.optional-dependencies]
-gui = [
-    { name = "customtkinter" },
 ]
 
 [package.dev-dependencies]
@@ -397,13 +393,12 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "customtkinter", marker = "extra == 'gui'", specifier = ">=5.2" },
+    { name = "customtkinter", specifier = ">=5.2" },
     { name = "cyclopts", specifier = ">=4.8" },
     { name = "platformdirs", specifier = ">=4.0" },
     { name = "polars", specifier = ">=1.0" },
     { name = "xlsxwriter", specifier = ">=3.2" },
 ]
-provides-extras = ["gui"]
 
 [package.metadata.requires-dev]
 dev = [

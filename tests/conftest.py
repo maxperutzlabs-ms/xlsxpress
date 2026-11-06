@@ -9,7 +9,7 @@ from zipfile import ZipFile
 
 import pytest
 
-from xlsxpress.app import appdata
+from xlsxpress import config
 from xlsxpress.core import paths
 
 _NAMESPACE = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
@@ -101,5 +101,5 @@ def xlsx_reader() -> Callable[[Path], Sheet]:
 def isolated_cache_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     directory = tmp_path / "user-cache"
     monkeypatch.setattr(paths, "get_cache_dir", lambda: directory)
-    monkeypatch.setattr(appdata, "get_appdata_dir", lambda: tmp_path / "user-data")
+    monkeypatch.setattr(config, "get_data_dir", lambda: tmp_path / "user-data")
     return directory

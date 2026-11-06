@@ -9,7 +9,7 @@ from tkinter import messagebox
 
 import customtkinter as ctk
 
-from xlsxpress.app.config import AppConfig, DialogDefaults, write_config
+from xlsxpress.config import AppConfig, DialogDefaults, write_config
 from xlsxpress.core.options import ConversionOptions
 from xlsxpress.core.pipeline import run_conversion
 
