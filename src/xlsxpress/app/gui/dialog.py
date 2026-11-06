@@ -68,7 +68,8 @@ class _OptionsDialog(ctk.CTk):
         self._update_btn.pack(side="left")
         self._bind_tooltip(
             self._update_btn,
-            'Sets the defaults used by the context menu action\n"Open in Excel (XlsxPress)"',
+            "Sets the defaults used by the context menu action\n"
+            '"Open in Excel (XlsxPress)"',
         )
 
         # Submit button

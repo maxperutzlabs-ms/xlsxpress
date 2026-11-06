@@ -47,7 +47,7 @@ def load_config() -> AppConfig:
     try:
         with path.open("rb") as file:
             data = tomllib.load(file)
-    except OSError, tomllib.TOMLDecodeError:
+    except (OSError, tomllib.TOMLDecodeError):
         return config
     for section, target in (("dialog", config.dialog), ("cleanup", config.cleanup)):
         for key, value in data.get(section, {}).items():

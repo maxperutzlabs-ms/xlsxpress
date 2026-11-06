@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -21,12 +21,21 @@ FileArgument = Annotated[
     Path, typer.Argument(help="Tabular input file.", exists=True, dir_okay=False)
 ]
 NrowsOption = Annotated[
-    Optional[int],
+    int | None,
     typer.Option(
         "--nrows", "-n", min=1, help="Only include the first N rows (preview)."
     ),
 ]
 PlainOption = Annotated[bool, typer.Option("--plain", help="Skip header formatting.")]
+TempOption = Annotated[
+    bool,
+    typer.Option(
+        "--temp", help="Write to the temp directory instead of next to the input."
+    ),
+]
+OpenOption = Annotated[
+    bool, typer.Option("--open", help="Open the result in Excel after converting.")
+]
 
 
 @app.command()
@@ -52,9 +61,9 @@ def convert(
     filename: FileArgument,
     nrows: NrowsOption = None,
     plain: PlainOption = False,
-    temp: Annotated[bool, typer.Option("--temp", help="Write to the temp directory instead of next to the input.")] = False,
-    open_after: Annotated[bool, typer.Option("--open", help="Open the result in Excel after converting.")] = False,
-) -> None:  # fmt: skip
+    temp: TempOption = False,
+    open_after: OpenOption = False,
+) -> None:
     """Convert to an xlsx file next to the original (default) or in temp."""
     _run(
         ConversionOptions(
@@ -73,7 +82,7 @@ def _run(options: ConversionOptions) -> None:
         output_path = run_conversion(options)
     except (FileNotFoundError, UnsupportedFormatError) as error:
         typer.secho(f"Error: {error}", fg=typer.colors.RED, err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
     typer.echo(f"Written '.xlsx' file to: {output_path}")
 
 

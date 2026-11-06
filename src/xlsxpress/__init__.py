@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import importlib.metadata
 
 if __package__ is not None:

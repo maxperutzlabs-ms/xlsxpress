@@ -53,7 +53,7 @@ def write_excel(
 
 
 def _apply_capped_autofit(workbook: xlsxwriter.Workbook, df: pl.DataFrame) -> None:
-    """Set each column to autofit width, capped to [_MIN_COL_PIXELS, _MAX_COL_PIXELS]."""
+    """Set each column to its autofit width, capped to the min and max widths."""
     worksheet = workbook.worksheets()[0]
 
     for col_idx, col in enumerate(df.columns):

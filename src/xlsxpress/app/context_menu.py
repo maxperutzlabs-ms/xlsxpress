@@ -20,8 +20,10 @@ class ContextMenuConfig(NamedTuple):
 
 _ENTRIES: tuple[ContextMenuConfig, ...] = (
     ContextMenuConfig("XlsxPress.Open", "Open in Excel (XlsxPress)", "open"),
-    ContextMenuConfig("XlsxPress.Dialog", "Open conversion dialog (XlsxPress)", "dialog"),
-)  # fmt: skip
+    ContextMenuConfig(
+        "XlsxPress.Dialog", "Open conversion dialog (XlsxPress)", "dialog"
+    ),
+)
 _CLASSES_ROOT = r"Software\Classes\SystemFileAssociations"
 
 
@@ -85,26 +87,6 @@ def is_registered() -> bool:
             except OSError:
                 continue
     return False
-
-
-def registered_exe_path() -> Path | None:
-    """Return the exe path used by the first found registry entry, if any."""
-    if not is_supported_platform():
-        return None
-    import winreg
-
-    for extension in EXTENSIONS:
-        for entry in _ENTRIES:
-            try:
-                shell_key = (
-                    rf"{_CLASSES_ROOT}\{extension}\shell\{entry.registry_key}\command"
-                )
-                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, shell_key) as key:
-                    command, _ = winreg.QueryValueEx(key, None)
-                return Path(command.split('"')[1])
-            except OSError, IndexError:
-                continue
-    return None
 
 
 def _delete_key_tree(root: int, key_path: str) -> None:

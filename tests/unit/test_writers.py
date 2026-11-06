@@ -1,18 +1,19 @@
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from zipfile import ZipFile
-import xml.etree.ElementTree as ET
 
 import polars as pl
+import pytest
 
 from xlsxpress.core.writers import write_excel
 
+pytestmark = pytest.mark.unit
+
 
 class TestWriteExcel:
-    def test_write_excel_preserves_float_precision_in_general_format(
-        self, tmp_path: Path
-    ) -> None:
+    def test_write_excel_preserves_float_precision_in_general_format(self, tmp_path: Path) -> None:
         output_path = tmp_path / "precision.xlsx"
         write_excel(pl.DataFrame({"measurement": [1.23456789]}), output_path)
 

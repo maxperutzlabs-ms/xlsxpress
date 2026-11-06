@@ -59,7 +59,7 @@ def read_state() -> InstallState:
             installed=bool(data.get("installed", False)),
             context_registered=bool(data.get("context_registered", False)),
         )
-    except OSError, tomllib.TOMLDecodeError:
+    except (OSError, tomllib.TOMLDecodeError):
         return InstallState()
 
 

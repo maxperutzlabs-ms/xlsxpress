@@ -11,8 +11,10 @@ authors = [
 keywords = ["excel", "csv", "parquet", "xlsx", "data", "conversion", "polars"]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Development Status :: 5 - Production/Stable",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
@@ -22,7 +24,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research"
 ]
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
     "polars>=1.0",
     "xlsxwriter>=3.2",
@@ -42,11 +44,57 @@ xlsxpress = "xlsxpress.cli:app"
 xlsxpress-app = "xlsxpress.app.main:main"
 
 [build-system]
-requires = ["uv_build>=0.11.12,<0.12.0"]
+requires = ["uv_build>=0.13.5,<0.14.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "pytest>=9.1.1",
+    "pyrefly==1.2.0",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "ruff==0.16.1",
 ]
+
+[tool.pytest.ini_options]
+addopts = ["--strict-config", "--strict-markers"]
+testpaths = ["tests"]
+markers = [
+    "unit: fast unit tests without external resources or network access",
+    "integration: tests covering multi-component workflows and cross-module behavior",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["xlsxpress"]
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+show_missing = true
+
+[tool.ruff]
+extend-exclude = ["*.md"]
+line-length = 88
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["xlsxpress"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pyrefly]
+preset = "default"
+python-version = "3.12"
+# Check against the Windows stubs on every OS, so the Windows-only registry code
+# (winreg, ctypes.windll) type-checks on the Linux CI runner too.
+python-platform = "windows"
+project-includes = ["src/**/*.py"]
+search-path = ["src"]
 

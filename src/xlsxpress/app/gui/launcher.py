@@ -57,7 +57,10 @@ class _LauncherWindow(ctk.CTk):
         installed = "yes" if state.installed else "no"
         version = state.version or installation.package_version()
         self._status_label.configure(
-            text=f"Version: {version}\nInstalled: {installed}\nContext menu: {registered}"
+            text=(
+                f"Version: {version}\nInstalled: {installed}\n"
+                f"Context menu: {registered}"
+            )
         )
         self._install_button.configure(
             state="disabled" if state.installed else "normal",
