@@ -396,7 +396,7 @@ requires-dist = [
     { name = "customtkinter", specifier = ">=5.2" },
     { name = "cyclopts", specifier = ">=4.8" },
     { name = "platformdirs", specifier = ">=4.0" },
-    { name = "polars", specifier = ">=1.0" },
+    { name = "polars", specifier = ">=1.18" },
     { name = "xlsxwriter", specifier = ">=3.2" },
 ]
 
