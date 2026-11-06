@@ -16,7 +16,8 @@ def run_conversion(options: ConversionOptions) -> Path:
 
     Raises:
         FileNotFoundError: If the input file does not exist.
-        readers.UnsupportedFormatError: If the input format is unsupported.
+        errors.ConversionError: If the input cannot be read or does not fit into an
+            Excel worksheet (see its subclasses in `xlsxpress.core.errors`).
     """
     input_path = options.input_path.resolve()
     if not input_path.is_file():

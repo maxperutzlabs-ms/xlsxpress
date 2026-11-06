@@ -33,6 +33,10 @@ Status: 2026-11-06. Based on the project review of the same date.
 | Header formatting | Bold, wrapped, frozen first row, plain autofilter | No Excel Table. `--plain` turns all of this off. Column names are always written as text, and empty names stay empty. |
 | Column widths | Estimated from header and first 1,000 rows, between 40 and 125 pixels | Replaces polars autofit and the per-cell width loop. Date columns are always wide enough for the full date, because Excel shows `###` for a date that doesn't fit. |
 | Excel limits | Too many rows or columns: `ExcelLimitError` before writing, no file is created. Strings > 32,767 characters: truncated with a `ConversionWarning`. | |
+| Reading text files: types | Every column is read as text first. It becomes integers if every value is a plain integer (`-12`), floats if every value is a plain integer or decimal (`1.5`, `.5`, `1.5e-3`, `1e+05`) or infinity (`inf`, `-Infinity`, any case). Otherwise the whole column stays text. | Keeps leading zeros (`007`), `+5`, spaces, decimal commas, dates, `TRUE`/`FALSE`, gene names and IDs like `2310009E13` unchanged. An integer mantissa needs a signed exponent (`1e+05` is a number, `1E5` is text); R and .NET write signed exponents. Trailing zeros are allowed (`1.10` becomes 1.1, the value is unchanged; Excel does the same). Integers beyond the 64-bit range become floats, consistent with the 15-digit decision. Reviewed on 2026-11-06; making full-precision decimals text was rejected, as most pandas float columns would become text. |
+| Reading text files: missing values | In an otherwise numeric column, `NA`, `NaN`, `nan`, `N/A`, `#N/A`, `null`, `NULL` and empty fields become blank cells | A column of only such tokens stays text. `-` and `--` are not missing values. No warning, since tools like MaxQuant write `NaN` everywhere. |
+| Reading text files: encoding | UTF-8, UTF-16 or UTF-32 byte order mark decides; otherwise UTF-8. Not valid UTF-8: Windows-1252, then Latin-1, with a warning. NUL bytes without a byte order mark: error. | |
+| Reading text files: format | Separator from the extension (`.tsv`) or sniffed from the first lines (`.csv`, `.txt`), preferring a separator with the same count on every line. Standard `"` quoting; if that fails, read again without quote handling and warn. Repeated column names are renamed by polars (`a_duplicated_0`), with a warning. | Rows with more fields than the header, e.g. from comment lines at the top, give an error. |
 | Install | uv tool (recommended), pip (supported) | PyApp exe dropped. |
 | Existing PyApp installs | Low priority: a short migration note | Only one or two users. Re-registering overwrites the same registry keys; the old exe and its Python environment have to be removed by hand. |
 | Context menu | HKCU `SystemFileAssociations`, command runs `pythonw.exe -m xlsxpress.app ...` from the install environment | `pythonw` avoids a console window. Warn when registering from an environment that isn't a tool install. |
@@ -45,15 +49,16 @@ Status: 2026-11-06. Based on the project review of the same date.
 Bugs in code that will be removed are marked *(removed with PyApp)* and won't be fixed separately. Fixed bugs are ticked in the commit that fixes them.
 
 - [x] Context menu "Open in Excel" cuts the data to `nrows` rows even when preview is off
-- [ ] Leading zeros, decimals like `1.10` and E-notation IDs are changed by type inference
+- [x] Leading zeros, decimals like `1.10` and E-notation IDs are changed by type inference (`1.10` stays a number by decision)
 - [x] Strings starting with `=` become formulas
 - [x] `inf` and `-inf` crash the conversion
 - [x] Timezone-aware datetime columns crash the conversion on Windows (missing `tzdata`)
-- [ ] UTF-16 files produce garbage without an error; Latin-1 files fail
+- [x] UTF-16 files produce garbage without an error; Latin-1 files fail
 - [x] Strings over 32,767 characters are truncated without a warning
-- [ ] Duplicate headers are renamed without a warning (empty headers now stay empty)
-- [ ] Polars errors are not caught (CLI traceback, generic GUI error box)
-- [ ] A type change after row 10,000 fails the conversion
+- [x] Duplicate headers are renamed without a warning (empty headers now stay empty)
+- [x] Read errors show a traceback in the CLI
+- [ ] Read errors show only a generic error box in the GUI
+- [x] A type change after row 10,000 fails the conversion
 - [ ] Temp files can clash with an open workbook of the same name
 - [ ] CLI temp folder is never cleaned and differs from the app's folder
 - [ ] Temp files that the user edited and saved get deleted by cleanup
@@ -86,6 +91,12 @@ Every step ends with green checks (ruff, pyrefly, pytest) and its own commit or 
 11. **CD and release 0.4.0.** Release workflow to PyPI, classifiers (Beta), dependency lower bounds checked.
 
 The writer comes before the reader because its decisions are settled and it can be tested on its own. The distribution switch comes before the app-level fixes, so no time goes into code that gets removed. The CLI switches to cyclopts before the distribution switch, so the new `context-menu` subcommand is written in cyclopts right away.
+
+## Ideas for later
+
+- Optional decimal-comma parsing (`1,5`) for German-locale exports. Not automatic: `1,234` means 1.234 in German and 1234 in English.
+- Perseus matrices: their `#!{Type}` annotation rows below the header make every column text.
+- An option to write integers over 15 digits as text.
 
 ## Testing approach
 

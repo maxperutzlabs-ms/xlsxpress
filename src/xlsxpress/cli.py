@@ -7,9 +7,9 @@ from typing import Annotated
 
 import typer
 
+from xlsxpress.core.errors import ConversionError
 from xlsxpress.core.options import ConversionOptions
 from xlsxpress.core.pipeline import run_conversion
-from xlsxpress.core.readers import UnsupportedFormatError
 
 app = typer.Typer(
     name="xlsxpress",
@@ -80,7 +80,7 @@ def _run(options: ConversionOptions) -> None:
     """Run the pipeline, reporting errors as exit codes instead of tracebacks."""
     try:
         output_path = run_conversion(options)
-    except (FileNotFoundError, UnsupportedFormatError) as error:
+    except (FileNotFoundError, ConversionError) as error:
         typer.secho(f"Error: {error}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from None
     typer.echo(f"Written '.xlsx' file to: {output_path}")

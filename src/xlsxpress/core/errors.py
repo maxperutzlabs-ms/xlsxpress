@@ -3,9 +3,21 @@
 from __future__ import annotations
 
 
-class ConversionWarning(UserWarning):
-    """Warns that values had to be changed to fit into an Excel workbook."""
+class ConversionError(ValueError):
+    """Base class for all errors that stop a conversion."""
 
 
-class ExcelLimitError(ValueError):
+class UnsupportedFormatError(ConversionError):
+    """Raised when a file extension is not supported."""
+
+
+class ReadError(ConversionError):
+    """Raised when an input file cannot be read as a table."""
+
+
+class ExcelLimitError(ConversionError):
     """Raised when a table does not fit into an Excel worksheet."""
+
+
+class ConversionWarning(UserWarning):
+    """Warns that values or names were changed, or may be read incorrectly."""
