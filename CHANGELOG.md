@@ -1,0 +1,44 @@
+# Changelog
+
+## [0.4.0] - Unreleased
+
+### Added
+- `xlsxpress context-menu register`, `unregister` and `status` commands, which add, remove and check the File Explorer context menu entries on Windows.
+- `xlsxpress --version` option.
+- Warnings for values or names that XlsxPress changed or may have read incorrectly: text longer than Excel's limit of 32,767 characters, repeated column names, files that are not valid UTF-8, and files with irregular quotes. The command line, the context menu and the conversion dialog show these warnings.
+- Support for text files in UTF-16 and UTF-32 with a byte order mark, and in Windows-1252 or Latin-1.
+- Support for Python 3.12 and 3.13.
+- The conversion dialog shows where XlsxPress saved the workbook, with a **Show in folder** button and the warnings of the conversion.
+
+### Changed
+- Install with `uv tool install xlsxpress` or `pip install xlsxpress`. The desktop parts are included, so the `gui` extra is no longer necessary.
+- A column of a text file becomes a number column only if every value in it is a plain number. Otherwise the whole column stays text, so leading zeros (`007`), signs (`+5`), decimal commas, dates and IDs such as `2310009E13` stay exactly as in the file.
+- Missing values such as `NA`, `NaN` and `#N/A` become empty cells in number columns.
+- The separator of `.csv` and `.txt` files is detected from the first lines and prefers a separator that occurs equally often on every line.
+- Dates and datetimes from Parquet files become Excel dates. Datetimes with a time zone, times, durations, lists and binary values become text.
+- XlsxPress writes the workbook row by row, so large files need less memory.
+- Column widths are estimated from the header and the first 1,000 rows, between 40 and 125 pixels. Date columns are always wide enough for the full date.
+- XlsxPress no longer writes the data as an Excel table. Instead, the formatted header row has plain filter buttons, and `--plain` turns off all header formatting, including the filter buttons.
+- XlsxPress never overwrites a file and adds a number to the name instead (`data-02.xlsx`). It writes each workbook to a work folder first, so a file under the output name is always complete.
+- The command line, the context menu and the conversion dialog share one temp folder, `%LOCALAPPDATA%\xlsxpress\Cache\temp` on Windows. Names in the temp folder contain the date and time, and XlsxPress deletes workbooks there after 14 days or when there are more than 100.
+- **Open in Excel (XlsxPress)** always opens the workbook, whatever the default of **Open in Excel after conversion** is.
+- The **Rows** field of the conversion dialog is active only with **Preview only (limit rows)**.
+- The command line shows errors as short messages without a traceback and returns exit code 1 when a conversion fails.
+
+### Removed
+- The standalone Windows app (`xlsxpress.exe`), with its launcher window, installer and self-update. Use `uv tool upgrade xlsxpress` to update and `uv tool uninstall xlsxpress` to uninstall.
+- The `xlsxpress-app` command and the `gui` extra.
+
+### Fixed
+- **Open in Excel (XlsxPress)** converted only the preview rows, even when preview was off.
+- Floating-point numbers were rounded to three decimal places.
+- Text that starts with `=` became a formula.
+- `inf` and `-inf` values stopped the conversion.
+- Datetime columns with a time zone stopped the conversion on Windows.
+- UTF-16 files gave unreadable text without an error, and Latin-1 files could not be read.
+- A text file whose values changed type after row 10,000 could not be converted.
+- A workbook in the temp folder could have the same name as a workbook that was open in Excel.
+- Temp files of the command line were never deleted.
+- Cleanup of the temp folder could fail when several conversions ran at the same time.
+- A workbook that was written but could not be opened was reported as a failed conversion.
+- Read errors showed a traceback on the command line and a general error message in the context menu.
