@@ -40,30 +40,31 @@ Status: 2026-11-06. Based on the project review of the same date.
 
 ## Bugs to fix
 
-Bugs in code that will be removed are marked *(removed with PyApp)* and won't be fixed separately.
+Bugs in code that will be removed are marked *(removed with PyApp)* and won't be fixed separately. Fixed bugs are ticked in the commit that fixes them.
 
-- Context menu "Open in Excel" cuts the data to `nrows` rows even when preview is off
-- Leading zeros, decimals like `1.10` and E-notation IDs are changed by type inference
-- Strings starting with `=` become formulas
-- `inf` and `-inf` crash the conversion
-- UTF-16 files produce garbage without an error; Latin-1 files fail
-- Strings over 32,767 characters are truncated without a warning
-- Empty and duplicate headers are renamed without a warning
-- Polars errors are not caught (CLI traceback, generic GUI error box)
-- A type change after row 10,000 fails the conversion
-- Temp files can clash with an open workbook of the same name
-- CLI temp folder is never cleaned and differs from the app's folder
-- Temp files that the user edited and saved get deleted by cleanup
-- Cleanup can crash when several conversions run at once
-- Dialog gives no output location after converting
-- Dialog row field stays active when preview is off
-- CLI has no `--version`
-- `xlsxpress-app` crashes without the `gui` extra *(removed with PyApp)*
-- Uninstall leaves the PyApp environment behind *(removed with PyApp)*
-- Downloading a newer exe doesn't update the installed one *(removed with PyApp)*
-- Build script picks the wrong cached PyApp version *(removed with PyApp)*
-- README: wrong install commands, missing install step, broken GIF URL on PyPI, label mismatch, CI claim without a workflow
-- Outdated docstrings and dead code (`registered_exe_path`)
+- [x] Context menu "Open in Excel" cuts the data to `nrows` rows even when preview is off
+- [ ] Leading zeros, decimals like `1.10` and E-notation IDs are changed by type inference
+- [ ] Strings starting with `=` become formulas
+- [ ] `inf` and `-inf` crash the conversion
+- [ ] UTF-16 files produce garbage without an error; Latin-1 files fail
+- [ ] Strings over 32,767 characters are truncated without a warning
+- [ ] Empty and duplicate headers are renamed without a warning
+- [ ] Polars errors are not caught (CLI traceback, generic GUI error box)
+- [ ] A type change after row 10,000 fails the conversion
+- [ ] Temp files can clash with an open workbook of the same name
+- [ ] CLI temp folder is never cleaned and differs from the app's folder
+- [ ] Temp files that the user edited and saved get deleted by cleanup
+- [ ] Cleanup can crash when several conversions run at once
+- [ ] Dialog gives no output location after converting
+- [ ] Dialog row field stays active when preview is off
+- [ ] CLI has no `--version`
+- [ ] `xlsxpress-app` crashes without the `gui` extra *(removed with PyApp)*
+- [ ] Uninstall leaves the PyApp environment behind *(removed with PyApp)*
+- [ ] Downloading a newer exe doesn't update the installed one *(removed with PyApp)*
+- [ ] Build script picks the wrong cached PyApp version *(removed with PyApp)*
+- [ ] README: wrong install commands, missing install step, broken GIF URL on PyPI, label mismatch, CI claim without a workflow
+- [ ] Outdated docstrings
+- [x] Dead code (`registered_exe_path`)
 
 ## Implementation order
 
