@@ -43,7 +43,7 @@ Status: 2026-11-06. Based on the project review of the same date.
 | Conversion warnings | Collected by the pipeline and returned with the result (`ConversionResult.warnings`), message text only. The CLI prints `Warning: ...` to stderr; the context menu and the dialog show them in a message box. | Conversion errors show their message in the context menu's error box; the log keeps the traceback. |
 | Opening the written file fails | `OpenOutputError` (not a `ConversionError`) with the output path and the warnings. The message says the file was written and where, that it couldn't be opened, and that maybe no program is set up for `.xlsx` files. | The CLI prints the warnings and `Wrote <path>`, then `Error: ...`, and exits with 1, because the requested action failed. The context menu shows the warnings and the message in its boxes. Decided 2026-11-06. |
 | Install | uv tool (recommended), pip (supported) | PyApp exe dropped. `customtkinter` is a required dependency; there is no `gui` extra, so `uv tool install xlsxpress` gives the full feature set. |
-| Existing PyApp installs | Low priority: a short migration note | Only one or two users. Re-registering overwrites the same registry keys and removes the old `Icon` value. `register` and `status` detect entries that run an `xlsxpress.exe` and tell the user to run `"<exe>" self remove` (PyApp's command to delete its Python environment), then delete the exe. Not yet checked on a real PyApp install. |
+| Existing PyApp installs | Low priority: no migration note in the README (decided 2026-11-06); the CLI explains what to do | Only one or two users. Re-registering overwrites the same registry keys and removes the old `Icon` value. `register` and `status` detect entries that run an `xlsxpress.exe` and tell the user to run `"<exe>" self remove` (PyApp's command to delete its Python environment), then delete the exe. Not yet checked on a real PyApp install. |
 | Context menu | HKCU `SystemFileAssociations`, command runs `pythonw.exe -m xlsxpress.app ...` from the install environment | `pythonw` avoids a console window; it is found next to `sys.executable`. Registering from an environment that isn't a uv tool install gives a warning, not an error, so a development venv can still register. A uv tool environment is recognised by its `uv-receipt.toml`, which works with any `UV_TOOL_DIR`. No menu icon. |
 | Context menu entries | "Open in Excel (XlsxPress)" converts with the saved defaults and always opens the result, whatever the saved "Open in Excel after conversion" says; that option only sets the dialog's default. "Open conversion dialog (XlsxPress)" shows the dialog. | Decided 2026-11-06. |
 | Conversion dialog | The Rows field is enabled only with "Preview only". "Reset" sets the form to the built-in defaults without saving; "Update default options" saves. Without preview, an invalid Rows value is ignored when converting and keeps the saved value when saving. After a conversion that wrote a file, the dialog shows the path, "Show in folder" and the warnings, disables the options and turns Convert into Close. It closes by itself only when the file was opened in Excel and there are no warnings. Errors are shown in full and logged with the traceback; Convert stays available. "About" shows the version, that the saved defaults also apply to "Open in Excel", the cleanup rules, the temp folder and the config file. | Closing the window during a conversion ends it; the work folder makes this safe, so it isn't blocked. Decided 2026-11-06. |
@@ -79,8 +79,8 @@ Bugs in code that will be removed are marked *(removed with PyApp)* and won't be
 - [x] Uninstall leaves the PyApp environment behind *(removed with PyApp)*
 - [x] Downloading a newer exe doesn't update the installed one *(removed with PyApp)*
 - [x] Build script picks the wrong cached PyApp version *(removed with PyApp)*
-- [ ] README: wrong install commands, missing install step, broken GIF URL on PyPI, label mismatch, CI claim without a workflow
-- [ ] Outdated docstrings
+- [x] README: wrong install commands, missing install step, broken GIF URL on PyPI, label mismatch, CI claim without a workflow
+- [x] Outdated docstrings
 - [x] Dead code (`registered_exe_path`)
 
 ## Implementation order
@@ -106,10 +106,10 @@ Goal: a non-developer can install, use, update and remove XlsxPress from the REA
 Scope:
 
 - **README:** what it does and why (the Excel conversion problem in two sentences); install with uv (installing uv itself, `uv tool install xlsxpress`, `xlsxpress context-menu register`), with pip as an alternative; usage from the CLI and from File Explorer (including Windows 11's "Show more options"); where temp files go and that they are deleted after 14 days or beyond 100 files, edited or not, so edits must be saved elsewhere; update (`uv tool upgrade xlsxpress`); uninstall (unregister first, then `uv tool uninstall`); manual registry cleanup commands for recovery.
-- **Conversion rules and limitations:** a user-facing summary of the decisions table: what stays text, what becomes a number or date, the 15-digit limit, missing values, `inf`, timezones, encodings, Excel limits. Suggested: `docs/conversion-rules.md`, linked from the README.
+- **Conversion rules and limitations:** a user-facing summary of the decisions table: what stays text, what becomes a number or date, the 15-digit limit, missing values, `inf`, timezones, encodings, Excel limits. Done in the README itself; a separate `docs/conversion-rules.md` was dropped on 2026-11-06.
 - Fix the README bugs: install commands, the GIF URL (a raw URL, so PyPI shows it), context menu labels matching the code, and only claim CI/CD that exists.
 - `CHANGELOG.md` in the format used by rawtrace-qc, starting with 0.4.0.
-- Migration note for PyApp users.
+- ~~Migration note for PyApp users.~~ Dropped on 2026-11-06; `context-menu register` and `status` explain what to do.
 - Check all docstrings against the code (bug: outdated docstrings).
 
 ### 11. CD and release 0.4.0
