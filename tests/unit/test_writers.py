@@ -5,11 +5,12 @@ import warnings
 from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
-from zipfile import ZipFile
 
 import polars as pl
 import pytest
+from xlsxwriter.worksheet import Worksheet
 
+from xlsxpress.core import writers
 from xlsxpress.core.errors import ConversionWarning, ExcelLimitError
 from xlsxpress.core.writers import EXCEL_MAX_COLUMNS, EXCEL_MAX_ROWS, EXCEL_MAX_STRING_LENGTH, write_excel
 
@@ -330,11 +331,22 @@ class TestWriteExcelLimits:
             write_excel(df, output_path)
         assert not output_path.exists()
 
-    def test_write_excel_writes_every_row_up_to_the_excel_limit(self, tmp_path: Path) -> None:
-        output_path = tmp_path / "output.xlsx"
+    def test_write_excel_limits_match_the_xlsxwriter_worksheet_limits(self) -> None:
+        worksheet = Worksheet()
 
-        write_excel(pl.DataFrame({"a": pl.arange(EXCEL_MAX_ROWS - 1, eager=True)}), output_path)
+        assert (EXCEL_MAX_ROWS, EXCEL_MAX_COLUMNS, EXCEL_MAX_STRING_LENGTH) == (
+            worksheet.xls_rowmax,
+            worksheet.xls_colmax,
+            worksheet.xls_strmax,
+        )
 
-        with ZipFile(output_path) as workbook:
-            sheet_xml = workbook.read("xl/worksheets/sheet1.xml").decode()
-        assert f'<c r="A{EXCEL_MAX_ROWS}"><v>{EXCEL_MAX_ROWS - 2}</v></c>' in sheet_xml
+    def test_write_excel_writes_every_row_up_to_the_row_limit(
+        self, write_sheet: Callable, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(writers, "EXCEL_MAX_ROWS", 4)
+
+        sheet = write_sheet(pl.DataFrame({"a": [1, 2, 3]}))
+
+        assert sheet.cells["A4"].value == "3"
+        with pytest.raises(ExcelLimitError):
+            write_sheet(pl.DataFrame({"a": [1, 2, 3, 4]}))
