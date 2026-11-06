@@ -45,6 +45,8 @@ Status: 2026-11-06. Based on the project review of the same date.
 | Install | uv tool (recommended), pip (supported) | PyApp exe dropped. `customtkinter` is a required dependency; there is no `gui` extra, so `uv tool install xlsxpress` gives the full feature set. |
 | Existing PyApp installs | Low priority: a short migration note | Only one or two users. Re-registering overwrites the same registry keys and removes the old `Icon` value. `register` and `status` detect entries that run an `xlsxpress.exe` and tell the user to run `"<exe>" self remove` (PyApp's command to delete its Python environment), then delete the exe. Not yet checked on a real PyApp install. |
 | Context menu | HKCU `SystemFileAssociations`, command runs `pythonw.exe -m xlsxpress.app ...` from the install environment | `pythonw` avoids a console window; it is found next to `sys.executable`. Registering from an environment that isn't a uv tool install gives a warning, not an error, so a development venv can still register. A uv tool environment is recognised by its `uv-receipt.toml`, which works with any `UV_TOOL_DIR`. No menu icon. |
+| Context menu entries | "Open in Excel (XlsxPress)" converts with the saved defaults and always opens the result, whatever the saved "Open in Excel after conversion" says; that option only sets the dialog's default. "Open conversion dialog (XlsxPress)" shows the dialog. | Decided 2026-11-06. |
+| Conversion dialog | The Rows field is enabled only with "Preview only". "Reset" sets the form to the built-in defaults without saving; "Update default options" saves. Without preview, an invalid Rows value is ignored when converting and keeps the saved value when saving. After a conversion that wrote a file, the dialog shows the path, "Show in folder" and the warnings, disables the options and turns Convert into Close. It closes by itself only when the file was opened in Excel and there are no warnings. Errors are shown in full and logged with the traceback; Convert stays available. "About" shows the version, that the saved defaults also apply to "Open in Excel", the cleanup rules, the temp folder and the config file. | Closing the window during a conversion ends it; the work folder makes this safe, so it isn't blocked. Decided 2026-11-06. |
 | Settings | `xlsxpress.config`: config file and log file, shared by CLI and app | Both stay in `platformdirs.user_data_dir("xlsxpress", "perutzms")`, e.g. `%LOCALAPPDATA%\perutzms\xlsxpress`. The CLI no longer imports its settings from the app package. |
 | Python | `>= 3.12` | Matches rawtrace-qc. |
 | CI | GitHub Actions like rawtrace-qc: lint job plus test matrix on Linux, Windows, macOS | Registry tests run on Windows only. |
@@ -63,15 +65,15 @@ Bugs in code that will be removed are marked *(removed with PyApp)* and won't be
 - [x] Strings over 32,767 characters are truncated without a warning
 - [x] Duplicate headers are renamed without a warning (empty headers now stay empty)
 - [x] Read errors show a traceback in the CLI
-- [x] Read errors show only a generic error box in the GUI (context menu; the dialog part is step 9)
+- [x] Read errors show only a generic error box in the GUI
 - [x] A type change after row 10,000 fails the conversion
 - [x] Temp files can clash with an open workbook of the same name
 - [x] CLI temp folder is never cleaned and differs from the app's folder
 - [x] ~~Temp files that the user edited and saved get deleted by cleanup~~ Not a bug: temp files are disposable (decided 2026-11-06)
 - [x] Cleanup can crash when several conversions run at once
-- [x] Opening the written file fails with a traceback (CLI) or "XlsxPress failed" (context menu), as if the conversion had failed (the dialog part is step 9)
-- [ ] Dialog gives no output location after converting
-- [ ] Dialog row field stays active when preview is off
+- [x] Opening the written file fails with a traceback (CLI) or "XlsxPress failed" (context menu), as if the conversion had failed
+- [x] Dialog gives no output location after converting
+- [x] Dialog row field stays active when preview is off
 - [x] CLI has no `--version`
 - [x] `xlsxpress-app` crashes without the `gui` extra *(removed with PyApp)*
 - [x] Uninstall leaves the PyApp environment behind *(removed with PyApp)*
@@ -85,7 +87,7 @@ Bugs in code that will be removed are marked *(removed with PyApp)* and won't be
 
 Every step ends with green checks (ruff, pyrefly, pytest) and its own commit or commits. For a bug, the test is written first and must fail; the fix follows in the same commit, so the branch never carries failing tests. Work happens on the `dev` branch. Tick fixed bugs in the [bug list](#bugs-to-fix) in the same commit, and update the decisions table when a step settles a decision.
 
-Steps 1–8 are done. Steps 9–11 below list the scope, the suggested design and what "done" means. A *suggested* design is a starting point: if the code shows a better way, take it and record the decision in the table.
+Steps 1–9 are done. Steps 10–11 below list the scope, the suggested design and what "done" means. A *suggested* design is a starting point: if the code shows a better way, take it and record the decision in the table.
 
 1. **Tooling.** Done.
 2. **CI.** Done.
@@ -95,21 +97,7 @@ Steps 1–8 are done. Steps 9–11 below list the scope, the suggested design an
 6. **Pipeline, paths and temp files.** Done. Its decisions are in the table (output files, temp files, temp cleanup, conversion warnings).
 7. **CLI: typer → cyclopts.** Done. `xlsxpress.cli:main` returns the exit code, as in rawtrace-qc: 0 for success, 1 for a conversion error (including a missing input file), cyclopts' code for invalid arguments. `Error: ...` and `Warning: ...` go to stderr as plain text, without color, and `Wrote <path>` to stdout.
 8. **Distribution switch: PyApp → uv tool.** Done. `uv tool install xlsxpress` plus `xlsxpress context-menu register` gives the full feature set. The context menu runs `pythonw.exe -m xlsxpress.app open|dialog FILE` (`xlsxpress/app/__main__.py`); the app has no launcher route anymore. `xlsxpress context-menu register | unregister | status` manage the entries; on macOS and Linux they exit with an error. The PyApp code is gone: installer, launcher window, self-update, build script, install manifest, `xlsxpress-app` script and exe path helpers. `customtkinter` became a required dependency and the `gui` extra is gone, so the planned check for the extra wasn't needed. Config and log moved from `app/appdata.py` and `app/config.py` to `xlsxpress/config.py`, so the CLI reads its settings without the app package; the CLI still imports `app.context_menu` for its `context-menu` commands, which is where that code belongs. Checked with a real `uv tool install .`: `register` writes the expected commands and `status` reads them back. The right-click entries themselves still need a look by hand.
-
-### 9. Conversion dialog
-
-Goal: the dialog shows what happened and where the result is.
-
-Scope:
-
-- After a successful conversion, show the output path, a "Show in folder" button and any warnings. Close automatically only when the file was opened in Excel and there are no warnings.
-- Enable the Rows field only while "Preview only" is switched on.
-- Show full error messages (wrapped, not cut at 80 characters), and log the traceback.
-- Update the GUI only from the Tk main thread: the worker thread hands its result over through a queue that `after()` polls, instead of calling widget methods from the thread.
-
-Tests: GUI code isn't unit tested. Move the decisions (options from widget state, which message to show for a result) into plain functions and test those; check the window itself by hand.
-
-Bugs: dialog gives no output location, row field stays active, generic error (dialog part).
+9. **Conversion dialog.** Done. Its decisions are in the table (context menu entries, conversion dialog). The decisions live in `app/gui/dialog_logic.py` and are unit tested; the window in `app/gui/dialog.py` only reads widgets and shows outcomes. The worker thread hands its outcome to the Tk main thread through a queue polled with `after()`. All states were checked by driving the real window from a script and taking screenshots; "Show in folder" (`explorer /select,`) and the window on a second monitor still need a look by hand. Two changes came first, each in its own commit: unfinished workbooks are written to a work folder (table: output files, temp cleanup), and a file that was written but couldn't be opened raises `OpenOutputError` (table: opening the written file fails).
 
 ### 10. Documentation
 

@@ -49,7 +49,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _run_open(filename: Path) -> int:
-    """Context menu 'Open in Excel': convert with the saved default options."""
+    """Context menu 'Open in Excel': convert with the saved defaults and open.
+
+    The file is always opened, whatever the saved `open_after` option says: that
+    option only sets the dialog's default.
+    """
     from xlsxpress.core.errors import ConversionError, OpenOutputError
     from xlsxpress.core.options import ConversionOptions
     from xlsxpress.core.pipeline import run_conversion
@@ -59,7 +63,7 @@ def _run_open(filename: Path) -> int:
         input_path=filename,
         nrows=app_config.dialog.nrows if app_config.dialog.preview else None,
         to_temp=app_config.dialog.to_temp,
-        open_after=app_config.dialog.open_after,
+        open_after=True,
         format_header=app_config.dialog.format_header,
         cleanup_policy=app_config.cleanup,
     )

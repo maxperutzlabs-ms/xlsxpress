@@ -28,7 +28,28 @@ def no_logging_or_error_boxes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(app_main, "_show_error_box", _fail_on_error_box)
 
 
+@pytest.fixture(autouse=True)
+def opened(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
+    paths_opened: list[Path] = []
+    monkeypatch.setattr(excel, "open_in_default_app", paths_opened.append)
+    return paths_opened
+
+
 class TestMainOpen:
+    @pytest.mark.parametrize("open_after", [False, True])
+    def test_open_always_opens_the_file_whatever_the_saved_open_after_option(
+        self, tmp_path: Path, opened: list[Path], open_after: bool
+    ) -> None:
+        input_path = tmp_path / "data.tsv"
+        input_path.write_text("a\n1\n", encoding="utf-8")
+        write_config(AppConfig(dialog=DialogDefaults(open_after=open_after), cleanup=CleanupPolicy()))
+
+        exit_code = app_main.main(["open", str(input_path)])
+
+        assert exit_code == 0
+        assert opened == list(paths.get_temp_dir().glob("*.xlsx"))
+        assert len(opened) == 1
+
     @pytest.mark.parametrize(("preview", "expected_rows"), [(False, 150), (True, 100)])
     def test_open_limits_rows_only_when_preview_is_enabled(
         self, tmp_path: Path, preview: bool, expected_rows: int

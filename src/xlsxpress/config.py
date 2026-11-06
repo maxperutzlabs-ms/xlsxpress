@@ -22,8 +22,10 @@ _APPAUTHOR = "perutzms"
 class DialogDefaults:
     """Default options of the conversion dialog and the context menu's "Open in Excel".
 
+    "Open in Excel" uses all options except `open_after`: it always opens the file.
+
     Attributes:
-        open_after: Open the xlsx file in Excel after converting.
+        open_after: Open the xlsx file in Excel after converting in the dialog.
         preview: Only convert the first `nrows` data rows.
         nrows: The number of data rows to convert with `preview`.
         to_temp: Write to the temp folder instead of next to the input file.
