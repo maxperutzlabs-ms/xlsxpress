@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from xlsxpress.core import paths
-from xlsxpress.core.paths import get_temp_dir, reserve_output_path
+from xlsxpress.core.paths import get_temp_dir, get_work_dir, reserve_output_path
 
 pytestmark = pytest.mark.unit
 
@@ -17,6 +17,15 @@ class TestGetTempDir:
 
         assert temp_dir == isolated_cache_dir / "temp"
         assert temp_dir.is_dir()
+
+
+class TestGetWorkDir:
+    def test_get_work_dir_creates_a_work_folder_separate_from_the_temp_folder(self, isolated_cache_dir: Path) -> None:
+        work_dir = get_work_dir()
+
+        assert work_dir == isolated_cache_dir / "work"
+        assert work_dir.is_dir()
+        assert work_dir != get_temp_dir()
 
 
 class TestReserveOutputPath:

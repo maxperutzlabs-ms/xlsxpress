@@ -2,17 +2,19 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+import shutil
 import time
 import warnings
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import polars as pl
 import pytest
 
 from xlsxpress.core import paths, writers
 from xlsxpress.core.cleanup import CleanupPolicy
-from xlsxpress.core.errors import ExcelLimitError, ReadError, UnsupportedFormatError
+from xlsxpress.core.errors import ExcelLimitError, ReadError, UnsupportedFormatError, WriteError
 from xlsxpress.core.options import ConversionOptions
 from xlsxpress.core.pipeline import run_conversion
 
@@ -140,6 +142,81 @@ class TestRunConversionOutputLocation:
         assert _xlsx_files(temp_dir) == sorted([recent, new.output_path])
 
 
+class TestRunConversionWorkFolder:
+    @pytest.mark.parametrize("to_temp", [False, True])
+    def test_run_conversion_creates_the_output_name_only_after_the_workbook_is_complete(
+        self, tsv_file: Path, monkeypatch: pytest.MonkeyPatch, to_temp: bool
+    ) -> None:
+        output_dir = paths.get_temp_dir() if to_temp else tsv_file.parent
+        original_write_excel = writers.write_excel
+        files_while_writing: list[list[Path]] = []
+
+        def write_excel(*args: Any, **kwargs: Any) -> Path:
+            files_while_writing.append(_xlsx_files(output_dir))
+            return original_write_excel(*args, **kwargs)
+
+        monkeypatch.setattr(writers, "write_excel", write_excel)
+
+        result = run_conversion(ConversionOptions(tsv_file, to_temp=to_temp))
+
+        assert files_while_writing == [[]]
+        assert _xlsx_files(output_dir) == [result.output_path]
+        assert list(paths.get_work_dir().iterdir()) == []
+
+    def test_run_conversion_deletes_work_files_older_than_one_day(self, tsv_file: Path) -> None:
+        work_dir = paths.get_work_dir()
+        stale, fresh = work_dir / "tmpstale.xlsx", work_dir / "tmpfresh.xlsx"
+        for path in (stale, fresh):
+            path.write_bytes(b"unfinished")
+        two_days_ago_ns = time.time_ns() - 2 * 86_400 * 10**9
+        os.utime(stale, ns=(two_days_ago_ns, two_days_ago_ns))
+
+        run_conversion(ConversionOptions(tsv_file))
+
+        assert list(work_dir.iterdir()) == [fresh]
+
+    @pytest.mark.parametrize(("to_temp", "expected"), [(True, "move"), (False, "copy")])
+    def test_run_conversion_moves_to_the_temp_folder_and_copies_next_to_the_input(
+        self, tsv_file: Path, monkeypatch: pytest.MonkeyPatch, xlsx_reader: Callable, to_temp: bool, expected: str
+    ) -> None:
+        calls: list[str] = []
+        original_replace, original_copyfile = os.replace, shutil.copyfile
+
+        def replace(source: Path, target: Path) -> None:
+            calls.append("move")
+            original_replace(source, target)
+
+        def copyfile(source: Path, target: Path) -> None:
+            calls.append("copy")
+            original_copyfile(source, target)
+
+        monkeypatch.setattr(os, "replace", replace)
+        monkeypatch.setattr(shutil, "copyfile", copyfile)
+
+        result = run_conversion(ConversionOptions(tsv_file, to_temp=to_temp))
+
+        assert calls == [expected]
+        assert xlsx_reader(result.output_path).cells["C2"].value == "007"
+        assert list(paths.get_work_dir().iterdir()) == []
+
+    @pytest.mark.parametrize(("to_temp", "patched"), [(True, (os, "replace")), (False, (shutil, "copyfile"))])
+    def test_run_conversion_raises_write_error_and_cleans_up_when_moving_or_copying_fails(
+        self, tsv_file: Path, monkeypatch: pytest.MonkeyPatch, to_temp: bool, patched: tuple[Any, str]
+    ) -> None:
+        def fail(source: Path, target: Path) -> None:
+            Path(target).write_bytes(b"partial")
+            raise OSError(28, "No space left on device")
+
+        monkeypatch.setattr(*patched, fail)
+        output_dir = paths.get_temp_dir() if to_temp else tsv_file.parent
+
+        with pytest.raises(WriteError, match=r"Could not write .*data.*\.xlsx.*No space left on device"):
+            run_conversion(ConversionOptions(tsv_file, to_temp=to_temp))
+
+        assert _xlsx_files(output_dir) == []
+        assert list(paths.get_work_dir().iterdir()) == []
+
+
 class TestRunConversionWarnings:
     @pytest.mark.parametrize(
         ("content", "expected"),
@@ -191,6 +268,7 @@ class TestRunConversionErrors:
 
         assert _xlsx_files(input_path.parent) == [input_path] * (name == "data.xlsx")
         assert _xlsx_files(paths.get_temp_dir()) == []
+        assert list(paths.get_work_dir().iterdir()) == []
 
     def test_run_conversion_raises_read_error_for_a_missing_input_file(self, tmp_path: Path) -> None:
         with pytest.raises(ReadError, match="does not exist"):

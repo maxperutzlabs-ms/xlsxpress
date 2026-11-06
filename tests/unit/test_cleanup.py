@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from xlsxpress.core.cleanup import CleanupPolicy, clean_temp_dir
+from xlsxpress.core.cleanup import CleanupPolicy, clean_temp_dir, clean_work_dir
 
 pytestmark = pytest.mark.unit
 
@@ -73,3 +73,37 @@ class TestCleanTempDir:
 
     def test_clean_temp_dir_returns_zero_for_a_missing_folder(self, tmp_path: Path) -> None:
         assert clean_temp_dir(tmp_path / "missing", CleanupPolicy()) == 0
+
+
+class TestCleanWorkDir:
+    def test_clean_work_dir_deletes_files_of_any_name_older_than_one_day(self, tmp_path: Path) -> None:
+        old = [_temp_file(tmp_path, "tmpab12.xlsx", age_days=1.1), _temp_file(tmp_path, "tmpcd34", age_days=3)]
+        recent = _temp_file(tmp_path, "tmpef56.xlsx", age_days=0.9)
+
+        deleted = clean_work_dir(tmp_path)
+
+        assert deleted == 2
+        assert not any(path.exists() for path in old)
+        assert recent.exists()
+
+    def test_clean_work_dir_skips_subfolders_and_locked_files(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        locked = _temp_file(tmp_path, "locked.xlsx", age_days=2)
+        folder = tmp_path / "folder"
+        folder.mkdir()
+        original_unlink = Path.unlink
+
+        def unlink(self: Path, missing_ok: bool = False) -> None:
+            if self == locked:
+                raise PermissionError(13, "The file is in use")
+            original_unlink(self, missing_ok=missing_ok)
+
+        monkeypatch.setattr(Path, "unlink", unlink)
+
+        assert clean_work_dir(tmp_path) == 0
+        assert locked.exists()
+        assert folder.is_dir()
+
+    def test_clean_work_dir_returns_zero_for_a_missing_folder(self, tmp_path: Path) -> None:
+        assert clean_work_dir(tmp_path / "missing") == 0

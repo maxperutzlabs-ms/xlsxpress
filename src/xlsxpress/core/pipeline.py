@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import contextlib
+import os
+import shutil
+import tempfile
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,6 +35,11 @@ def run_conversion(options: ConversionOptions) -> ConversionResult:
     The xlsx file is written next to the input file, or into the temp folder with
     `options.to_temp`. An existing file is never overwritten; a free name is chosen
     instead. When writing to the temp folder, old temp files are cleaned up first.
+
+    The workbook is first written to the work folder (`paths.get_work_dir`) and
+    moved (temp folder) or copied (next to the input) to its output path only when
+    complete, so a file under the output name is never unfinished, even if the
+    process is killed during the conversion.
 
     `ConversionWarning`s are collected and returned instead of being emitted, so
     every frontend can show them.
@@ -72,21 +80,58 @@ def _convert(options: ConversionOptions) -> Path:
         cleanup.clean_temp_dir(output_dir, options.cleanup_policy)
     else:
         output_dir = input_path.parent
+
+    # The workbook is written to the work folder first, so the output name never
+    # holds an unfinished file, even if the process is killed while writing.
+    work_dir = paths.get_work_dir()
+    cleanup.clean_work_dir(work_dir)
     try:
-        output_path = paths.reserve_output_path(
-            input_path, output_dir, unique=options.to_temp
+        handle, name = tempfile.mkstemp(suffix=".xlsx", dir=work_dir)
+    except OSError as error:
+        raise WriteError(
+            f"Could not create a file in the XlsxPress work folder '{work_dir}': "
+            f"{error.strerror or error}. Check that there is enough free disk space."
+        ) from error
+    os.close(handle)
+    work_file = Path(name)
+    try:
+        writers.write_excel(
+            df, work_file, format_header=options.format_header, tmpdir=work_dir
         )
+        return _publish(work_file, input_path, output_dir, options.to_temp)
+    finally:
+        with contextlib.suppress(OSError):
+            work_file.unlink(missing_ok=True)
+
+
+def _publish(
+    work_file: Path, input_path: Path, output_dir: Path, to_temp: bool
+) -> Path:
+    try:
+        output_path = paths.reserve_output_path(input_path, output_dir, unique=to_temp)
     except OSError as error:
         raise WriteError(
             f"Could not create an xlsx file in '{output_dir}': "
             f"{error.strerror or error}. Check that the folder is writable, or "
             "convert to the temp folder instead."
         ) from error
-
+    # The temp folder sits next to the work folder, on the same drive and with the
+    # same permissions, so the file is moved: a copy would be a second new file,
+    # which the virus scanner checks again when Excel opens it (about 0.6 s for a
+    # 2.5 MB workbook). Elsewhere the file is copied, so it gets the permissions of
+    # the output folder and also works on another drive or a network share.
     try:
-        writers.write_excel(df, output_path, format_header=options.format_header)
-    except BaseException:
+        if to_temp:
+            os.replace(work_file, output_path)
+        else:
+            shutil.copyfile(work_file, output_path)
+    except BaseException as error:
         with contextlib.suppress(OSError):
             output_path.unlink(missing_ok=True)
+        if isinstance(error, OSError):
+            raise WriteError(
+                f"Could not write '{output_path}': {error.strerror or error}. Check "
+                "that the folder is writable and that there is enough free disk space."
+            ) from error
         raise
     return output_path

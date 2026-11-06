@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import datetime as dt
+import tempfile
 import warnings
 from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import polars as pl
 import pytest
@@ -359,3 +361,24 @@ class TestWriteExcelFile:
         with pytest.raises(WriteError, match="Could not write .*output.xlsx.*folder exists and is writable"):
             write_excel(pl.DataFrame({"a": [1]}), output_path)
         assert not output_path.exists()
+
+    def test_write_excel_puts_xlsxwriter_temp_files_into_tmpdir(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, xlsx_reader: Callable
+    ) -> None:
+        tmpdir = tmp_path / "work"
+        tmpdir.mkdir()
+        used_dirs: list[str | None] = []
+        original_mkstemp = tempfile.mkstemp
+
+        def mkstemp(*args: Any, **kwargs: Any) -> tuple[int, str]:
+            used_dirs.append(kwargs.get("dir"))
+            return original_mkstemp(*args, **kwargs)
+
+        monkeypatch.setattr(tempfile, "mkstemp", mkstemp)
+
+        write_excel(pl.DataFrame({"a": ["x", "y"]}), tmp_path / "output.xlsx", tmpdir=tmpdir)
+
+        assert used_dirs
+        assert set(used_dirs) == {str(tmpdir)}
+        assert xlsx_reader(tmp_path / "output.xlsx").cells["A3"].value == "y"
+        assert list(tmpdir.iterdir()) == []

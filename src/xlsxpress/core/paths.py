@@ -27,6 +27,19 @@ def get_temp_dir() -> Path:
     return temp_dir
 
 
+def get_work_dir() -> Path:
+    """Return the folder for unfinished xlsx files and create it if needed.
+
+    Workbooks are written here first and copied to their output path only when
+    complete, so an interrupted conversion never leaves a broken file under the
+    output name. Files left behind by a killed process are deleted by
+    `cleanup.clean_work_dir`.
+    """
+    work_dir = get_cache_dir() / "work"
+    work_dir.mkdir(parents=True, exist_ok=True)
+    return work_dir
+
+
 def reserve_output_path(
     input_path: Path, output_dir: Path, unique: bool = False
 ) -> Path:

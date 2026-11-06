@@ -62,6 +62,7 @@ def write_excel(
     df: pl.DataFrame,
     output_path: Path,
     format_header: bool = True,
+    tmpdir: Path | None = None,
 ) -> Path:
     """Write a DataFrame to an xlsx file and return the output path.
 
@@ -85,6 +86,9 @@ def write_excel(
         output_path: Target xlsx path. The parent directory must exist.
         format_header: If True (default), formats the header row in bold with
             wrapped text, freezes it and adds an autofilter.
+        tmpdir: Folder for xlsxwriter's temporary files, which hold the uncompressed
+            rows until the workbook is complete. If None (default), uses the
+            system temp folder.
 
     Returns:
         The output path.
@@ -101,7 +105,10 @@ def write_excel(
     """
     _check_excel_limits(df)
     df = _prepare_columns(df)
-    workbook = xlsxwriter.Workbook(str(output_path), _WORKBOOK_OPTIONS)
+    workbook_options: dict[str, bool | str] = {**_WORKBOOK_OPTIONS}
+    if tmpdir is not None:
+        workbook_options["tmpdir"] = str(tmpdir)
+    workbook = xlsxwriter.Workbook(str(output_path), workbook_options)
     try:
         sheet_writer = _SheetWriter(workbook, workbook.add_worksheet())
         sheet_writer.write(df, format_header)
