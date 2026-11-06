@@ -16,7 +16,7 @@ import polars as pl
 from xlsxpress.core.errors import ConversionWarning, ReadError, UnsupportedFormatError
 
 #: Extensions read as character-separated text, with their default separator.
-#: For ".csv" and ".txt" the separator is sniffed from the first line.
+#: For ".csv" and ".txt" the separator is sniffed from the first lines.
 _SEPARATED_TEXT_EXTENSIONS = {".csv": None, ".tsv": "\t", ".txt": None}
 
 SUPPORTED_EXTENSIONS = frozenset(_SEPARATED_TEXT_EXTENSIONS) | {".parquet"}
@@ -57,9 +57,14 @@ def read_table(path: Path, nrows: int | None = None) -> pl.DataFrame:
     In a numeric column, the missing-value tokens in `MISSING_VALUE_TOKENS` (such as
     `NA` and `NaN`) become null. A column of only such tokens stays text.
 
-    Text files are decoded as UTF-8 or UTF-16 if they start with a byte order
-    mark, and as UTF-8 otherwise. A file that is not valid UTF-8 is read as
-    Windows-1252, or as Latin-1 if that fails, with a warning.
+    Text files that start with a byte order mark are decoded as UTF-8, UTF-16 or
+    UTF-32, as the mark says, and other text files as UTF-8. A file that is not
+    valid UTF-8 is read as Windows-1252, or as Latin-1 if that fails, with a
+    warning.
+
+    The separator is tab for `.tsv` files. For `.csv` and `.txt` files it is
+    guessed from the first lines. If standard `"` quoting fails, the file is read
+    again without quote handling, with a warning.
 
     Args:
         path: Source file. The format is inferred from the extension.
@@ -70,12 +75,12 @@ def read_table(path: Path, nrows: int | None = None) -> pl.DataFrame:
 
     Raises:
         UnsupportedFormatError: If the file extension is not supported.
-        ReadError: If the file does not exist, cannot be opened, or cannot be read
-            as a table.
+        ReadError: If the file does not exist, cannot be opened, is empty, contains
+            NUL bytes without a byte order mark, or cannot be read as a table.
 
     Warns:
-        ConversionWarning: If a text file is not valid UTF-8, or if repeated column
-            names were renamed.
+        ConversionWarning: If a text file is not valid UTF-8, was read without
+            quote handling, or has repeated column names that were renamed.
     """
     extension = path.suffix.lower()
     if extension not in SUPPORTED_EXTENSIONS:

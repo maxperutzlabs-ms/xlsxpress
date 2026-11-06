@@ -30,8 +30,8 @@ def get_temp_dir() -> Path:
 def get_work_dir() -> Path:
     """Return the folder for unfinished xlsx files and create it if needed.
 
-    Workbooks are written here first and copied to their output path only when
-    complete, so an interrupted conversion never leaves a broken file under the
+    Workbooks are written here first and moved or copied to their output path only
+    when complete, so an interrupted conversion never leaves a broken file under the
     output name. Files left behind by a killed process are deleted by
     `cleanup.clean_work_dir`.
     """
@@ -52,8 +52,8 @@ def reserve_output_path(
     an existing file is never overwritten.
 
     The file is created exclusively, so conversions running at the same time never
-    get the same path. The caller writes the workbook over the empty file, or
-    deletes it if the conversion fails.
+    get the same path. The caller moves or copies the finished workbook over the
+    empty file, or deletes it if the conversion fails.
 
     Args:
         input_path: The file being converted.

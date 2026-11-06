@@ -82,7 +82,7 @@ def find_pythonw(executable: str | Path | None = None) -> Path:
     """Return the windowless Python next to the given Python executable.
 
     Args:
-        executable: A `python.exe`. Defaults to the running Python
+        executable: A `python.exe`. If None (default), uses the running Python
             (`sys.executable`).
 
     Returns:
@@ -141,8 +141,8 @@ def is_uv_tool_environment(prefix: str | Path | None = None) -> bool:
     environment, which may be deleted or moved and leave the entries broken.
 
     Args:
-        prefix: The environment's folder. Defaults to the running environment
-            (`sys.prefix`).
+        prefix: The environment's folder. If None (default), checks the running
+            environment (`sys.prefix`).
 
     Returns:
         True if `prefix` is a uv tool environment.

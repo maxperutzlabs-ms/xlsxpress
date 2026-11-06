@@ -68,9 +68,10 @@ def write_excel(
 
     Values are written according to their data type:
 
-    - Strings as text, never as formulas, numbers or links.
+    - Strings, categoricals and enums as text, never as formulas, numbers or links.
     - Integers, decimals and floats as numbers in Excel's `General` format. Excel
-      keeps at most 15 significant digits of a number.
+      keeps at most 15 significant digits of a number. Float32 values are
+      converted through their shortest decimal text, so `0.1` stays `0.1`.
     - Null and NaN as blank cells, `inf` and `-inf` as text.
     - Booleans as Excel booleans.
     - Dates and datetimes without a time zone as Excel dates. Excel's resolution is
@@ -79,7 +80,8 @@ def write_excel(
     - Times, durations, lists, structs, binary and all other types as text.
 
     Column widths are estimated from the header and the first rows, within fixed
-    minimum and maximum widths.
+    minimum and maximum widths. Date columns are always wide enough for the full
+    date, because Excel shows `###` for a date that does not fit.
 
     Args:
         df: The table to write.

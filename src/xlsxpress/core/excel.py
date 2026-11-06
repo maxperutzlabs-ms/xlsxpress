@@ -12,7 +12,15 @@ from pathlib import Path
 
 
 def open_in_default_app(path: Path) -> None:
-    """Open `path` with the OS default application, non-blocking."""
+    """Open `path` with the OS default application, non-blocking.
+
+    Args:
+        path: The file to open.
+
+    Raises:
+        OSError: If no application is set up for the file type, or the application
+            cannot be started.
+    """
     if sys.platform == "win32":
         os.startfile(path)  # noqa: S606
     elif sys.platform == "darwin":

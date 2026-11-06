@@ -21,7 +21,9 @@ class ConversionOptions:
             not.
         open_after: Open the resulting xlsx file in the default application (Excel
             on Windows) after writing.
-        format_header: Apply header formatting to the first row.
+        format_header: Format the header row (bold, wrapped text, frozen, with an
+            autofilter). If False, the workbook is written without any formatting
+            of the header row.
         cleanup_policy: When to delete old files from the temp folder. Only used
             with `to_temp`.
     """

@@ -29,7 +29,8 @@ class DialogDefaults:
         preview: Only convert the first `nrows` data rows.
         nrows: The number of data rows to convert with `preview`.
         to_temp: Write to the temp folder instead of next to the input file.
-        format_header: Apply header formatting to the first row.
+        format_header: Format the header row (bold, wrapped text, frozen, with an
+            autofilter).
     """
 
     open_after: bool = True
@@ -83,7 +84,11 @@ def write_config(config: AppConfig, path: Path | None = None) -> None:
 
     Args:
         config: The config to write.
-        path: The file to write. Defaults to the config file path.
+        path: The file to write. If None (default), writes the config file, see
+            `get_config_path`.
+
+    Raises:
+        OSError: If the folder or the file cannot be written.
     """
     path = path or get_config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
