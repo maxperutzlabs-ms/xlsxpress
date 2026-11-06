@@ -6,17 +6,20 @@ from pathlib import Path
 
 import platformdirs
 
+from xlsxpress.core import paths
+
 APPNAME = "xlsxpress"
 APPAUTHOR = "perutzms"
 
 
 def get_appdata_dir() -> Path:
-    """Return the app data directory, e.g. %LOCALAPPDATA%/XlsxPress on Windows."""
+    """Return the app data directory, e.g. %LOCALAPPDATA%/perutzms/xlsxpress."""
     return Path(platformdirs.user_data_dir(APPNAME, APPAUTHOR))
 
 
 def get_temp_dir() -> Path:
-    return get_appdata_dir() / "temp"
+    """Return the temp folder shared with the CLI (see `paths.get_temp_dir`)."""
+    return paths.get_temp_dir()
 
 
 def get_config_path() -> Path:
@@ -39,4 +42,4 @@ def get_log_path() -> Path:
 def ensure_directory_structure() -> None:
     """Create the appdata directory tree (idempotent)."""
     get_appdata_dir().mkdir(parents=True, exist_ok=True)
-    get_temp_dir().mkdir(parents=True, exist_ok=True)
+    get_temp_dir()

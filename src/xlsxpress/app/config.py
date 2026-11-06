@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from xlsxpress.app import appdata
+from xlsxpress.core.cleanup import CleanupPolicy
 
 
 @dataclass(slots=True)
@@ -18,14 +19,6 @@ class DialogDefaults:
     nrows: int = 100
     to_temp: bool = True
     format_header: bool = True
-
-
-@dataclass(slots=True)
-class CleanupPolicy:
-    """When to delete files from the appdata temp directory."""
-
-    max_age_days: int = 14
-    max_files: int = 100
 
 
 @dataclass(slots=True)

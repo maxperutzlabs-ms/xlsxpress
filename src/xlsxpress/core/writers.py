@@ -17,11 +17,12 @@ from typing import Any
 
 import polars as pl
 import xlsxwriter
+from xlsxwriter.exceptions import XlsxFileError
 from xlsxwriter.utility import cell_autofit_width
 from xlsxwriter.workbook import Workbook
 from xlsxwriter.worksheet import Worksheet
 
-from xlsxpress.core.errors import ConversionWarning, ExcelLimitError
+from xlsxpress.core.errors import ConversionWarning, ExcelLimitError, WriteError
 
 #: Maximum number of rows of an Excel worksheet, including the header row.
 EXCEL_MAX_ROWS = 1_048_576
@@ -58,7 +59,9 @@ _CellWriter = Callable[[int, int, Any], None]
 
 
 def write_excel(
-    df: pl.DataFrame, output_path: Path, format_header: bool = True
+    df: pl.DataFrame,
+    output_path: Path,
+    format_header: bool = True,
 ) -> Path:
     """Write a DataFrame to an xlsx file and return the output path.
 
@@ -89,6 +92,8 @@ def write_excel(
     Raises:
         ExcelLimitError: If the table has more rows or columns than an Excel
             worksheet holds. No file is written in that case.
+        WriteError: If the file cannot be written, for example because the folder
+            is not writable or the disk is full. No file is left behind.
 
     Warns:
         ConversionWarning: If text longer than Excel's limit of 32,767 characters
@@ -100,12 +105,15 @@ def write_excel(
     try:
         sheet_writer = _SheetWriter(workbook, workbook.add_worksheet())
         sheet_writer.write(df, format_header)
-    except BaseException:
+        workbook.close()
+    except BaseException as error:
         with contextlib.suppress(Exception):
             workbook.close()
-        output_path.unlink(missing_ok=True)
+        with contextlib.suppress(OSError):
+            output_path.unlink(missing_ok=True)
+        if isinstance(error, OSError | XlsxFileError):
+            raise WriteError(_describe_write_error(output_path, error)) from error
         raise
-    workbook.close()
     sheet_writer.warn_about_truncated_text(df.columns)
     return output_path
 
@@ -292,3 +300,13 @@ def _prepare_columns(df: pl.DataFrame) -> pl.DataFrame:
         elif isinstance(dtype, pl.Datetime) and dtype.time_zone is not None:
             conversions.append(pl.col(name).dt.to_string(_ISO_DATETIME_WITH_OFFSET))
     return df.with_columns(conversions) if conversions else df
+
+
+def _describe_write_error(output_path: Path, error: Exception) -> str:
+    # xlsxwriter wraps the OSError of a failed file creation in `FileCreateError`.
+    cause = error.args[0] if isinstance(error, XlsxFileError) and error.args else error
+    reason = cause.strerror if isinstance(cause, OSError) and cause.strerror else cause
+    return (
+        f"Could not write {str(output_path)!r}: {reason}. Check that the folder "
+        "exists and is writable, and that there is enough free disk space."
+    )

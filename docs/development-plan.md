@@ -37,6 +37,10 @@ Status: 2026-11-06. Based on the project review of the same date.
 | Reading text files: missing values | In an otherwise numeric column, `NA`, `NaN`, `nan`, `N/A`, `#N/A`, `null`, `NULL` and empty fields become blank cells | A column of only such tokens stays text. `-` and `--` are not missing values. No warning, since tools like MaxQuant write `NaN` everywhere. |
 | Reading text files: encoding | UTF-8, UTF-16 or UTF-32 byte order mark decides; otherwise UTF-8. Not valid UTF-8: Windows-1252, then Latin-1, with a warning. NUL bytes without a byte order mark: error. | |
 | Reading text files: format | Separator from the extension (`.tsv`) or sniffed from the first lines (`.csv`, `.txt`), preferring a separator with the same count on every line. Standard `"` quoting; if that fails, read again without quote handling and warn. Repeated column names are renamed by polars (`a_duplicated_0`), with a warning. | Rows with more fields than the header, e.g. from comment lines at the top, give an error. |
+| Output files | Next to the input file by default, named after it (`data.xlsx`). An existing file is never overwritten; a counter is added instead (`data-02.xlsx`). The name is reserved by creating the file exclusively, so parallel conversions never collide. | If a conversion fails, the reserved file is deleted again. A file that can't be read creates no output at all. |
+| Temp files | One temp folder for CLI, context menu and dialog: `platformdirs.user_cache_path("xlsxpress", appauthor=False) / "temp"`, e.g. `%LOCALAPPDATA%\xlsxpress\Cache\temp`. Names get a timestamp (`data_2026-11-06_142530.xlsx`), because Excel can't open two workbooks with the same name, even from different folders. Temp files are disposable, a quick way to look at a file in Excel, and open normally without a read-only prompt. | The old folders (`%TEMP%\xlsxpress`, `<appdata>\temp`) are no longer used. A read-only recommendation was dropped on 2026-11-06, because Excel asked about it on every "Open in Excel". To keep edits, save the workbook somewhere else. |
+| Temp cleanup | Runs before each conversion to the temp folder, from the CLI too: deletes files older than `max_age_days` (14), then the oldest above `max_files` (100). The app config can override both. Age is the file's modification time. All `*.xlsx` files directly in the temp folder count, edited or not; Excel's lock files (`~$name.xlsx`), other files and subfolders are left alone. | Files that vanish or are locked (open in Excel) during cleanup are skipped. The README must say that temp files are deleted, edited or not. |
+| Conversion warnings | Collected by the pipeline and returned with the result (`ConversionResult.warnings`), message text only. The CLI prints `Warning: ...` to stderr; the context menu and the dialog show them in a message box. | Conversion errors show their message in the context menu's error box; the log keeps the traceback. |
 | Install | uv tool (recommended), pip (supported) | PyApp exe dropped. |
 | Existing PyApp installs | Low priority: a short migration note | Only one or two users. Re-registering overwrites the same registry keys; the old exe and its Python environment have to be removed by hand. |
 | Context menu | HKCU `SystemFileAssociations`, command runs `pythonw.exe -m xlsxpress.app ...` from the install environment | `pythonw` avoids a console window. Warn when registering from an environment that isn't a tool install. |
@@ -57,12 +61,12 @@ Bugs in code that will be removed are marked *(removed with PyApp)* and won't be
 - [x] Strings over 32,767 characters are truncated without a warning
 - [x] Duplicate headers are renamed without a warning (empty headers now stay empty)
 - [x] Read errors show a traceback in the CLI
-- [ ] Read errors show only a generic error box in the GUI
+- [x] Read errors show only a generic error box in the GUI (context menu; the dialog part is step 9)
 - [x] A type change after row 10,000 fails the conversion
-- [ ] Temp files can clash with an open workbook of the same name
-- [ ] CLI temp folder is never cleaned and differs from the app's folder
-- [ ] Temp files that the user edited and saved get deleted by cleanup
-- [ ] Cleanup can crash when several conversions run at once
+- [x] Temp files can clash with an open workbook of the same name
+- [x] CLI temp folder is never cleaned and differs from the app's folder
+- [x] ~~Temp files that the user edited and saved get deleted by cleanup~~ Not a bug: temp files are disposable (decided 2026-11-06)
+- [x] Cleanup can crash when several conversions run at once
 - [ ] Dialog gives no output location after converting
 - [ ] Dialog row field stays active when preview is off
 - [ ] CLI has no `--version`
@@ -76,21 +80,96 @@ Bugs in code that will be removed are marked *(removed with PyApp)* and won't be
 
 ## Implementation order
 
-Every step ends with green checks (ruff, pyrefly, pytest) and its own commit or commits. For a bug, the test is written first and must fail; the fix follows in the same commit, so the branch never carries failing tests. Work happens on the `dev` branch.
+Every step ends with green checks (ruff, pyrefly, pytest) and its own commit or commits. For a bug, the test is written first and must fail; the fix follows in the same commit, so the branch never carries failing tests. Work happens on the `dev` branch. Tick fixed bugs in the [bug list](#bugs-to-fix) in the same commit, and update the decisions table when a step settles a decision.
 
-1. **Tooling.** Dev group and tool config as in rawtrace-qc, `tests/ruff.toml`, pytest markers, `requires-python >= 3.12`, current `uv_build` pin. Fix the existing ruff findings and pyrefly errors.
-2. **CI.** `.github/workflows/ci.yml` modelled on rawtrace-qc. From here on every push is checked.
-3. **Hotfix for the `nrows` bug** in the current PyApp app. Not released right away; few users are affected.
-4. **Writer.** New `writers.py` with the type mapping, Excel limits, column widths and header formatting from the decisions table. Thorough unit tests per data type and limit. Remove `polars.write_excel`.
-5. **Reader.** Text-safe type inference, encoding detection, error wrapping and the late type change. Thorough unit tests.
-6. **Pipeline and paths.** Conversion error type, unique temp names, one temp folder for CLI and app, cleanup fixes, read-only recommendation for temp files. Show conversion warnings (e.g. truncated text) in the CLI and the GUI. First integration tests: input file → `.xlsx`, checked cell by cell.
-7. **CLI.** Switch from typer to cyclopts, add `--version`, consistent messages and help texts.
-8. **Distribution switch.** `context-menu` subcommand, a generalized `context_menu.py`, `xlsxpress.app` entry point for `open` and `dialog`. Remove the PyApp code. Short migration note for existing PyApp installs.
-9. **Dialog.** Show the output location, enable the row field only with preview, show full error messages.
-10. **Documentation.** README rewrite, conversion rules and limitations, CHANGELOG, migration note.
-11. **CD and release 0.4.0.** Release workflow to PyPI, classifiers (Beta), dependency lower bounds checked.
+Steps 1–6 are done. Steps 7–11 below list the scope, the suggested design and what "done" means. A *suggested* design is a starting point: if the code shows a better way, take it and record the decision in the table.
 
-The writer comes before the reader because its decisions are settled and it can be tested on its own. The distribution switch comes before the app-level fixes, so no time goes into code that gets removed. The CLI switches to cyclopts before the distribution switch, so the new `context-menu` subcommand is written in cyclopts right away.
+1. **Tooling.** Done.
+2. **CI.** Done.
+3. **Hotfix for the `nrows` bug.** Done, not released.
+4. **Writer.** Done.
+5. **Reader.** Done.
+6. **Pipeline, paths and temp files.** Done. Its decisions are in the table (output files, temp files, temp cleanup, conversion warnings).
+
+### 7. CLI: typer → cyclopts
+
+Goal: the same commands and options as today on cyclopts, matching rawtrace-qc, ready for the `context-menu` subcommand in step 8.
+
+Scope:
+
+- Replace `typer` with `cyclopts>=4.8` in the dependencies (as in rawtrace-qc) and update `uv.lock`.
+- Keep the commands and options unchanged: `open FILE [--nrows/-n N] [--plain]` and `convert FILE [--nrows/-n N] [--plain] [--temp] [--open]`. `python -m xlsxpress` keeps working.
+- Add `--version`, printing the package version.
+- Exit codes: 0 for success, 1 for a `ConversionError` or a missing file, cyclopts' default for usage errors. Messages: `Error: ...` and `Warning: ...` on stderr, the output path on stdout.
+- Help texts say what each command does in one line. The `open` help says that the file is a temp copy that gets cleaned up.
+- Follow rawtrace-qc for the console entry point and `__main__.py` (`rawtrace_qc.cli:main`).
+
+Tests: CLI integration tests that call the cyclopts app with an argument list, for `convert`, `convert --temp`, `--nrows`, `--version`, an error exit code and a printed warning. Opening Excel is patched out (`open_in_default_app`).
+
+Bugs: CLI has no `--version`.
+
+### 8. Distribution switch: PyApp → uv tool
+
+Goal: `uv tool install "xlsxpress[gui]"` plus `xlsxpress context-menu register` gives the full feature set, and all PyApp code is gone.
+
+Scope:
+
+- **App entry point.** Add `xlsxpress/app/__main__.py`, so `python -m xlsxpress.app open|dialog FILE` works. The launcher route (no arguments) goes away.
+- **Generalize `context_menu.py`.** `register()` takes the command to run instead of an exe path, building `"<python>\pythonw.exe" -m xlsxpress.app open "%1"` from `sys.executable` (`pythonw.exe` sits next to `python.exe` in a uv venv's `Scripts` folder; checked). The registry key root stays a module constant, so tests can point it at a test key.
+- **CLI subcommands:**
+  - `xlsxpress context-menu register`: register both entries (Open in Excel, Open conversion dialog) for `.csv`, `.tsv`, `.txt` and `.parquet`. Warn if `sys.prefix` is not inside the uv tool directory (default `%APPDATA%\uv\tools`, or `UV_TOOL_DIR`), since a project or conda environment may be deleted later. Check that the `gui` extra is installed, and if not, say how to install it.
+  - `xlsxpress context-menu unregister`: remove all entries; idempotent.
+  - `xlsxpress context-menu status`: show whether entries exist, the registered command, whether its Python still exists, and the config file path.
+  - On macOS and Linux the subcommands exit with a clear "only available on Windows" message.
+- **Remove PyApp code.** `app/installation.py`, `app/gui/launcher.py`, `scripts/build_app.py`, the `xlsxpress-app` console script, the install manifest (`install.toml`) and the exe path helpers in `appdata.py`. Keep `config.toml` and the log file in the appdata folder.
+- **Migration.** If `status` or `register` finds entries pointing at an old `xlsxpress.exe`, say so: `register` overwrites them, and the old exe (`%LOCALAPPDATA%\perutzms\xlsxpress`) and PyApp's environment (under `%LOCALAPPDATA%\pyapp`) can be deleted by hand. Check both paths on a real PyApp install before writing them into messages. Low priority; one or two users.
+- **Open question for David:** keep `customtkinter` in the `gui` extra, or make it a required dependency, since the context menu dialog needs it? A required dependency means one less install mistake.
+
+Tests: registry round trip (register, status, unregister) against a test key under `HKCU\Software\xlsxpress-tests`, never the real `SystemFileAssociations` key; Windows only (`skipif`). Unit tests for building the command string and for the tool-environment check.
+
+Bugs: the four *(removed with PyApp)* items are closed by deleting the code; tick them.
+
+### 9. Conversion dialog
+
+Goal: the dialog shows what happened and where the result is.
+
+Scope:
+
+- After a successful conversion, show the output path, a "Show in folder" button and any warnings. Close automatically only when the file was opened in Excel and there are no warnings.
+- Enable the Rows field only while "Preview only" is switched on.
+- Show full error messages (wrapped, not cut at 80 characters), and log the traceback.
+- Update the GUI only from the Tk main thread: the worker thread hands its result over through a queue that `after()` polls, instead of calling widget methods from the thread.
+
+Tests: GUI code isn't unit tested. Move the decisions (options from widget state, which message to show for a result) into plain functions and test those; check the window itself by hand.
+
+Bugs: dialog gives no output location, row field stays active, generic error (dialog part).
+
+### 10. Documentation
+
+Goal: a non-developer can install, use, update and remove XlsxPress from the README alone.
+
+Scope:
+
+- **README:** what it does and why (the Excel conversion problem in two sentences); install with uv (installing uv itself, `uv tool install "xlsxpress[gui]"`, `xlsxpress context-menu register`), with pip as an alternative; usage from the CLI and from File Explorer (including Windows 11's "Show more options"); update (`uv tool upgrade xlsxpress`); uninstall (unregister first, then `uv tool uninstall`); manual registry cleanup commands for recovery.
+- **Conversion rules and limitations:** a user-facing summary of the decisions table: what stays text, what becomes a number or date, the 15-digit limit, missing values, `inf`, timezones, encodings, Excel limits. Suggested: `docs/conversion-rules.md`, linked from the README.
+- Fix the README bugs: install commands, the GIF URL (a raw URL, so PyPI shows it), context menu labels matching the code, and only claim CI/CD that exists.
+- `CHANGELOG.md` in the format used by rawtrace-qc, starting with 0.4.0.
+- Migration note for PyApp users.
+- Check all docstrings against the code (bug: outdated docstrings).
+
+### 11. CD and release 0.4.0
+
+Goal: tagging a version publishes it to PyPI without manual steps.
+
+Scope:
+
+- `.github/workflows/release.yml` on tags `v*`: run the CI checks, `uv build`, check that the tag matches the version in `pyproject.toml`, publish with PyPI trusted publishing (`pypa/gh-action-pypi-publish`), create a GitHub release with the changelog section.
+- **Manual step for David:** set up the trusted publisher for `xlsxpress` on PyPI (repository, workflow name, environment).
+- Check the dependency lower bounds (`polars>=1.0` is far below the tested 1.41): raise them to versions that work, or add a CI job with `uv sync --resolution lowest-direct`.
+- Classifier `Development Status :: 4 - Beta`; version 0.4.0; add `.coverage` and `htmlcov/` to `.gitignore`.
+- Merge `dev` into `main` (ask David first), then tag.
+
+The writer came before the reader because its decisions were settled and it could be tested on its own. The distribution switch comes before the dialog fixes, so no time goes into code that gets removed. The CLI switches to cyclopts before the distribution switch, so the new `context-menu` subcommand is written in cyclopts right away.
 
 ## Ideas for later
 
@@ -104,3 +183,8 @@ The writer comes before the reader because its decisions are settled and it can 
 - **Exception: data conversion.** Reading and writing decide whether values survive, so they're tested thoroughly: every data type, every Excel limit, every decision in the table above.
 - **Integration tests** check high-level behaviour across modules: a file goes in, a workbook comes out, CLI and GUI paths give the same result, context-menu registration round trips (Windows only).
 - Coverage is reported in CI but isn't a target.
+
+## Working notes
+
+- **Test speed.** The whole suite runs in about 2 s. Keep each test well under 1 s; test limits with lowered constants instead of huge inputs.
+- **Commits.** Commit the plan together with the change it describes. `AGENTS.md`, `CLAUDE.md` and `.claude/` are not committed.

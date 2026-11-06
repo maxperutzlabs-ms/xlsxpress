@@ -11,7 +11,7 @@ import pytest
 from xlsxwriter.worksheet import Worksheet
 
 from xlsxpress.core import writers
-from xlsxpress.core.errors import ConversionWarning, ExcelLimitError
+from xlsxpress.core.errors import ConversionWarning, ExcelLimitError, WriteError
 from xlsxpress.core.writers import EXCEL_MAX_COLUMNS, EXCEL_MAX_ROWS, EXCEL_MAX_STRING_LENGTH, write_excel
 
 pytestmark = pytest.mark.unit
@@ -350,3 +350,12 @@ class TestWriteExcelLimits:
         assert sheet.cells["A4"].value == "3"
         with pytest.raises(ExcelLimitError):
             write_sheet(pl.DataFrame({"a": [1, 2, 3, 4]}))
+
+
+class TestWriteExcelFile:
+    def test_write_excel_raises_write_error_when_the_folder_does_not_exist(self, tmp_path: Path) -> None:
+        output_path = tmp_path / "missing" / "output.xlsx"
+
+        with pytest.raises(WriteError, match="Could not write .*output.xlsx.*folder exists and is writable"):
+            write_excel(pl.DataFrame({"a": [1]}), output_path)
+        assert not output_path.exists()

@@ -70,21 +70,32 @@ def read_table(path: Path, nrows: int | None = None) -> pl.DataFrame:
 
     Raises:
         UnsupportedFormatError: If the file extension is not supported.
-        ReadError: If the file cannot be read as a table.
+        ReadError: If the file does not exist, cannot be opened, or cannot be read
+            as a table.
 
     Warns:
         ConversionWarning: If a text file is not valid UTF-8, or if repeated column
             names were renamed.
     """
     extension = path.suffix.lower()
-    if extension == ".parquet":
-        return _read_parquet(path, nrows)
-    if extension in _SEPARATED_TEXT_EXTENSIONS:
+    if extension not in SUPPORTED_EXTENSIONS:
+        raise UnsupportedFormatError(
+            f"Unsupported file extension {extension!r}. "
+            f"Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
+        )
+    if not path.is_file():
+        raise ReadError(
+            f"Input file {str(path)!r} does not exist or is not a file. Check the path."
+        )
+    try:
+        if extension == ".parquet":
+            return _read_parquet(path, nrows)
         return _read_separated_text(path, nrows, _SEPARATED_TEXT_EXTENSIONS[extension])
-    raise UnsupportedFormatError(
-        f"Unsupported file extension {extension!r}. "
-        f"Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
-    )
+    except OSError as error:
+        raise ReadError(
+            f"Could not open {path.name!r}: {error.strerror or error}. Check that "
+            "you have permission to read the file and that no other program locks it."
+        ) from error
 
 
 def _read_parquet(path: Path, nrows: int | None) -> pl.DataFrame:

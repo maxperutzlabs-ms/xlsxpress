@@ -7,8 +7,9 @@ from tkinter import messagebox
 
 import customtkinter as ctk
 
-from xlsxpress.app import appdata, cleanup, config, context_menu, installation
+from xlsxpress.app import appdata, config, context_menu, installation
 from xlsxpress.app.installation import InstallState
+from xlsxpress.core import cleanup
 
 
 def run_launcher(state: InstallState) -> None:

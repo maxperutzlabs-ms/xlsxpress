@@ -339,3 +339,23 @@ class TestReadTableErrors:
     def test_read_table_raises_for_invalid_parquet_files(self, tmp_path: Path) -> None:
         with pytest.raises(ReadError, match="as a Parquet file"):
             read_table(_write_bytes(tmp_path, b"not parquet", name="data.parquet"))
+
+    @pytest.mark.parametrize("name", ["missing.tsv", "folder.csv"])
+    def test_read_table_raises_read_error_for_missing_files_and_folders(self, tmp_path: Path, name: str) -> None:
+        (tmp_path / "folder.csv").mkdir()
+
+        with pytest.raises(ReadError, match="does not exist or is not a file"):
+            read_table(tmp_path / name)
+
+    def test_read_table_raises_read_error_when_the_file_cannot_be_opened(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        path = _column_file(tmp_path, ["1"])
+
+        def deny(*args: object, **kwargs: object) -> None:
+            raise PermissionError(13, "Permission denied")
+
+        monkeypatch.setattr(Path, "open", deny)
+
+        with pytest.raises(ReadError, match="Could not open 'data.tsv': Permission denied"):
+            read_table(path)

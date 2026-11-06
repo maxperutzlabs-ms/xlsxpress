@@ -15,6 +15,10 @@ class ReadError(ConversionError):
     """Raised when an input file cannot be read as a table."""
 
 
+class WriteError(ConversionError):
+    """Raised when the xlsx file cannot be written."""
+
+
 class ExcelLimitError(ConversionError):
     """Raised when a table does not fit into an Excel worksheet."""
 

@@ -48,3 +48,32 @@ class TestMainOpen:
         assert exit_code == 0
         assert len(outputs) == 1
         assert _count_data_rows(outputs[0]) == expected_rows
+
+    def test_open_shows_the_conversion_error_message_in_an_error_box(
+        self, tmp_path: Path, appdata_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        input_path = tmp_path / "data.tsv"
+        input_path.write_text("a\tb\n1\t2\t3\n", encoding="utf-8")
+        messages: list[str] = []
+        monkeypatch.setattr(app_main, "_show_error_box", messages.append)
+
+        exit_code = app_main.main(["open", str(input_path)])
+
+        assert exit_code == 1
+        assert len(messages) == 1
+        assert "more tab-separated fields than the header row" in messages[0]
+
+    def test_open_shows_conversion_warnings_in_a_warning_box(
+        self, tmp_path: Path, appdata_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        input_path = tmp_path / "data.tsv"
+        input_path.write_text("a\ta\n1\t2\n", encoding="utf-8")
+        write_config(AppConfig(dialog=DialogDefaults(open_after=False), cleanup=CleanupPolicy()))
+        messages: list[str] = []
+        monkeypatch.setattr(app_main, "_show_warning_box", messages.append)
+
+        exit_code = app_main.main(["open", str(input_path)])
+
+        assert exit_code == 0
+        assert len(messages) == 1
+        assert "appear more than once" in messages[0]

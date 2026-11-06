@@ -13,8 +13,9 @@ import argparse
 import logging
 import sys
 from pathlib import Path
+from typing import Literal
 
-from xlsxpress.app import appdata, cleanup, config, installation
+from xlsxpress.app import appdata, config, installation
 
 logger = logging.getLogger("xlsxpress.app")
 
@@ -44,22 +45,33 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _run_open(filename: Path) -> int:
-    """Context menu 'Open in Excel': fixed options, appdata temp dir."""
+    """Context menu 'Open in Excel': convert with the saved default options.
+
+    Conversion errors and warnings are shown in a message box, because the context
+    menu has no console.
+    """
+    from xlsxpress.core.errors import ConversionError
     from xlsxpress.core.options import ConversionOptions
     from xlsxpress.core.pipeline import run_conversion
 
     appdata.ensure_directory_structure()
     app_config = config.load_config()
-    cleanup.clean_temp_dir(appdata.get_temp_dir(), app_config.cleanup)
     options = ConversionOptions(
         input_path=filename,
         nrows=app_config.dialog.nrows if app_config.dialog.preview else None,
         to_temp=app_config.dialog.to_temp,
         open_after=app_config.dialog.open_after,
         format_header=app_config.dialog.format_header,
-        temp_dir=appdata.get_temp_dir(),
+        cleanup_policy=app_config.cleanup,
     )
-    run_conversion(options)
+    try:
+        result = run_conversion(options)
+    except ConversionError as error:
+        logger.exception("Conversion of %s failed", filename)
+        _show_error_box(str(error))
+        return 1
+    if result.warnings:
+        _show_warning_box("\n\n".join(result.warnings))
     return 0
 
 
@@ -89,14 +101,26 @@ def _setup_logging() -> None:
 
 
 def _show_error_box(message: str) -> None:
-    """Stdout is discarded under PYAPP_IS_GUI; errors must be visible."""
+    """Show an error in a message box; the GUI app has no visible console."""
+    _show_message_box("error", message)
+
+
+def _show_warning_box(message: str) -> None:
+    """Show conversion warnings in a message box."""
+    _show_message_box("warning", message)
+
+
+def _show_message_box(kind: Literal["error", "warning"], message: str) -> None:
     try:
         import tkinter
         from tkinter import messagebox
 
         root = tkinter.Tk()
         root.withdraw()
-        messagebox.showerror("XlsxPress", message)
+        if kind == "error":
+            messagebox.showerror("XlsxPress", message)
+        else:
+            messagebox.showwarning("XlsxPress", message)
         root.destroy()
     except Exception:  # noqa: BLE001 - headless fallback
         print(message, file=sys.stderr)

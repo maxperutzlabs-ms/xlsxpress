@@ -9,6 +9,8 @@ from zipfile import ZipFile
 
 import pytest
 
+from xlsxpress.core import paths
+
 _NAMESPACE = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 _BUILTIN_NUMBER_FORMATS = {0: "General"}
 _ESCAPED_CHARACTER = re.compile(r"_x([0-9A-Fa-f]{4})_")
@@ -92,3 +94,10 @@ def _text_of(element: ET.Element) -> str:
 @pytest.fixture
 def xlsx_reader() -> Callable[[Path], Sheet]:
     return read_sheet
+
+
+@pytest.fixture(autouse=True)
+def isolated_cache_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    directory = tmp_path / "user-cache"
+    monkeypatch.setattr(paths, "get_cache_dir", lambda: directory)
+    return directory

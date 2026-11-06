@@ -5,10 +5,10 @@ from __future__ import annotations
 import threading
 import tkinter as tk
 from pathlib import Path
+from tkinter import messagebox
 
 import customtkinter as ctk
 
-from xlsxpress.app import appdata, cleanup
 from xlsxpress.app.config import AppConfig, DialogDefaults, write_config
 from xlsxpress.core.options import ConversionOptions
 from xlsxpress.core.pipeline import run_conversion
@@ -124,7 +124,7 @@ class _OptionsDialog(ctk.CTk):
             to_temp=self._temp_var.get(),
             open_after=self._open_var.get(),
             format_header=self._header_var.get(),
-            temp_dir=appdata.get_temp_dir(),
+            cleanup_policy=self._config.cleanup,
         )
         self._submit_button.configure(state="disabled")
         self._status_label.configure(text="Converting... this may take a moment.")
@@ -132,12 +132,18 @@ class _OptionsDialog(ctk.CTk):
 
     def _convert(self, options: ConversionOptions) -> None:
         try:
-            cleanup.clean_temp_dir(appdata.get_temp_dir(), self._config.cleanup)
-            run_conversion(options)
+            result = run_conversion(options)
         except Exception as error:  # noqa: BLE001
             self.after(0, self._on_error, str(error))
         else:
-            self.after(0, self.destroy)
+            self.after(0, self._on_success, result.warnings)
+
+    def _on_success(self, conversion_warnings: tuple[str, ...]) -> None:
+        if conversion_warnings:
+            messagebox.showwarning(
+                "XlsxPress", "\n\n".join(conversion_warnings), parent=self
+            )
+        self.destroy()
 
     def _bind_tooltip(self, widget: ctk.CTkBaseClass, text: str) -> None:
         tip: list[tk.Toplevel | None] = [None]
