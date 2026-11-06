@@ -7,7 +7,7 @@ import pytest
 
 from xlsxpress.app import main as app_main
 from xlsxpress.config import AppConfig, CleanupPolicy, DialogDefaults, write_config
-from xlsxpress.core import paths
+from xlsxpress.core import excel, paths
 
 pytestmark = pytest.mark.integration
 
@@ -73,3 +73,26 @@ class TestMainOpen:
         assert exit_code == 0
         assert len(messages) == 1
         assert "appear more than once" in messages[0]
+
+    def test_open_shows_that_the_file_was_written_when_it_cannot_be_opened(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        input_path = tmp_path / "data.tsv"
+        input_path.write_text("a\n1\n", encoding="utf-8")
+
+        def fail_to_open(path: Path) -> None:
+            raise OSError(1155, "No application is associated with the specified file for this operation")
+
+        monkeypatch.setattr(excel, "open_in_default_app", fail_to_open)
+        messages: list[str] = []
+        monkeypatch.setattr(app_main, "_show_error_box", messages.append)
+
+        exit_code = app_main.main(["open", str(input_path)])
+
+        outputs = list(paths.get_temp_dir().glob("*.xlsx"))
+        assert exit_code == 1
+        assert len(outputs) == 1
+        assert len(messages) == 1
+        assert str(outputs[0]) in messages[0]
+        assert "could not be opened" in messages[0]
+        assert "failed" not in messages[0]

@@ -12,7 +12,7 @@ from cyclopts import App, Parameter, validators
 from xlsxpress import __VERSION__
 from xlsxpress.app import context_menu
 from xlsxpress.config import get_config_path, load_config
-from xlsxpress.core.errors import ConversionError
+from xlsxpress.core.errors import ConversionError, OpenOutputError
 from xlsxpress.core.options import ConversionOptions
 from xlsxpress.core.pipeline import run_conversion
 
@@ -41,8 +41,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         argv: Command line arguments. If None (default), uses the process arguments.
 
     Returns:
-        The exit code: 0 on success, 1 if the conversion failed, and cyclopts' exit
-        code for invalid arguments.
+        The exit code: 0 on success, 1 if the conversion failed or the written file
+        could not be opened, and cyclopts' exit code for invalid arguments.
     """
     result = app(argv, result_action="return_value")
     return result if isinstance(result, int) else 0
@@ -114,10 +114,18 @@ def _run(options: ConversionOptions) -> int:
     except ConversionError as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
-    for message in result.warnings:
-        print(f"Warning: {message}", file=sys.stderr)
-    print(f"Wrote {result.output_path}")
+    except OpenOutputError as error:
+        _report_written(error.output_path, error.warnings)
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+    _report_written(result.output_path, result.warnings)
     return 0
+
+
+def _report_written(output_path: Path, warnings: tuple[str, ...]) -> None:
+    for message in warnings:
+        print(f"Warning: {message}", file=sys.stderr)
+    print(f"Wrote {output_path}")
 
 
 @context_menu_app.command

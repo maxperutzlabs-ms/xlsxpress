@@ -33,6 +33,24 @@ def _temp_files() -> list[Path]:
 
 
 class TestConvert:
+    def test_convert_reports_the_written_file_and_an_error_when_opening_fails(
+        self, input_file: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        def fail_to_open(path: Path) -> None:
+            raise OSError(1155, "No application is associated with the specified file for this operation")
+
+        monkeypatch.setattr(excel, "open_in_default_app", fail_to_open)
+
+        exit_code = main(["convert", str(input_file), "--open"])
+
+        output_path = input_file.with_suffix(".xlsx")
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert captured.out == f"Wrote {output_path}\n"
+        assert captured.err.startswith("Error: The xlsx file was written")
+        assert "could not be opened" in captured.err
+        assert output_path.exists()
+
     def test_convert_writes_next_to_the_input_and_prints_the_path(
         self, input_file: Path, opened: list[Path], capsys: pytest.CaptureFixture[str], xlsx_reader: Callable
     ) -> None:

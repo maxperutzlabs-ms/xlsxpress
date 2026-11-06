@@ -50,7 +50,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def _run_open(filename: Path) -> int:
     """Context menu 'Open in Excel': convert with the saved default options."""
-    from xlsxpress.core.errors import ConversionError
+    from xlsxpress.core.errors import ConversionError, OpenOutputError
     from xlsxpress.core.options import ConversionOptions
     from xlsxpress.core.pipeline import run_conversion
 
@@ -67,6 +67,12 @@ def _run_open(filename: Path) -> int:
         result = run_conversion(options)
     except ConversionError as error:
         logger.exception("Conversion of %s failed", filename)
+        _show_error_box(str(error))
+        return 1
+    except OpenOutputError as error:
+        logger.exception("Opening %s failed", error.output_path)
+        if error.warnings:
+            _show_warning_box("\n\n".join(error.warnings))
         _show_error_box(str(error))
         return 1
     if result.warnings:

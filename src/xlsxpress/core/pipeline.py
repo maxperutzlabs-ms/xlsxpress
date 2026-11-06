@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from xlsxpress.core import cleanup, excel, paths, readers, writers
-from xlsxpress.core.errors import ConversionWarning, WriteError
+from xlsxpress.core.errors import ConversionWarning, OpenOutputError, WriteError
 from xlsxpress.core.options import ConversionOptions
 
 
@@ -54,6 +54,8 @@ def run_conversion(options: ConversionOptions) -> ConversionResult:
         errors.ConversionError: If the input cannot be read, does not fit into an
             Excel worksheet, or the xlsx file cannot be written (see its subclasses
             in `xlsxpress.core.errors`). No partial xlsx file is left behind.
+        errors.OpenOutputError: If `options.open_after` is set and the written file
+            could not be opened. The error holds the output path and the warnings.
     """
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always", ConversionWarning)
@@ -66,9 +68,20 @@ def run_conversion(options: ConversionOptions) -> ConversionResult:
             warnings.warn_explicit(
                 warning.message, warning.category, warning.filename, warning.lineno
             )
+    result = ConversionResult(output_path, tuple(messages))
     if options.open_after:
-        excel.open_in_default_app(output_path)
-    return ConversionResult(output_path, tuple(messages))
+        try:
+            excel.open_in_default_app(output_path)
+        except OSError as error:
+            raise OpenOutputError(
+                f"The xlsx file was written to '{output_path}', but it could not be "
+                f"opened: {error.strerror or error}. Maybe no program is set up to "
+                "open .xlsx files. Open the file by hand, or choose a default app "
+                "for .xlsx files.",
+                output_path,
+                result.warnings,
+            ) from error
+    return result
 
 
 def _convert(options: ConversionOptions) -> Path:

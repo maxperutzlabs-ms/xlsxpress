@@ -12,9 +12,16 @@ from typing import Any
 import polars as pl
 import pytest
 
-from xlsxpress.core import paths, writers
+from xlsxpress.core import excel, paths, writers
 from xlsxpress.core.cleanup import CleanupPolicy
-from xlsxpress.core.errors import ExcelLimitError, ReadError, UnsupportedFormatError, WriteError
+from xlsxpress.core.errors import (
+    ConversionError,
+    ExcelLimitError,
+    OpenOutputError,
+    ReadError,
+    UnsupportedFormatError,
+    WriteError,
+)
 from xlsxpress.core.options import ConversionOptions
 from xlsxpress.core.pipeline import run_conversion
 
@@ -273,3 +280,39 @@ class TestRunConversionErrors:
     def test_run_conversion_raises_read_error_for_a_missing_input_file(self, tmp_path: Path) -> None:
         with pytest.raises(ReadError, match="does not exist"):
             run_conversion(ConversionOptions(tmp_path / "missing.tsv"))
+
+
+class TestRunConversionOpen:
+    def test_run_conversion_opens_the_written_file_with_open_after(
+        self, tsv_file: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        opened: list[Path] = []
+        monkeypatch.setattr(excel, "open_in_default_app", opened.append)
+
+        result = run_conversion(ConversionOptions(tsv_file, open_after=True))
+
+        assert opened == [result.output_path]
+
+    def test_run_conversion_raises_open_output_error_but_keeps_the_file_when_opening_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        input_path = tmp_path / "data.tsv"
+        input_path.write_text("a\ta\n1\t2\n", encoding="utf-8")
+
+        def fail_to_open(path: Path) -> None:
+            raise OSError(1155, "No application is associated with the specified file for this operation")
+
+        monkeypatch.setattr(excel, "open_in_default_app", fail_to_open)
+
+        with pytest.raises(OpenOutputError) as excinfo:
+            run_conversion(ConversionOptions(input_path, open_after=True))
+
+        error = excinfo.value
+        assert not isinstance(error, ConversionError)
+        assert error.output_path == tmp_path / "data.xlsx"
+        assert error.output_path.stat().st_size > 0
+        assert len(error.warnings) == 1
+        assert "appear more than once" in error.warnings[0]
+        assert "could not be opened" in str(error)
+        assert "No application is associated" in str(error)
+        assert "no program is set up to open .xlsx files" in str(error)
