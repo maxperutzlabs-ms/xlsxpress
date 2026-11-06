@@ -1,0 +1,74 @@
+# Lints, type-checks, and runs the test suite on all supported platforms using
+# the locked dependencies from `uv.lock`. Linux and Windows run every supported
+# Python version, and macOS runs only the latest.
+
+name: CI
+on:
+  push:
+    branches: ["main", "dev"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint and type-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: true
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: uv sync --locked --all-extras
+
+    - name: Ruff lint
+      run: uv run ruff check .
+
+    - name: Ruff format
+      run: uv run ruff format --check .
+
+    - name: Pyrefly
+      run: uv run pyrefly check
+
+  test:
+    name: Test (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.12", "3.13", "3.14"]
+        # macOS runners are often unavailable, so test only the latest Python.
+        exclude:
+        - os: macos-latest
+          python-version: "3.12"
+        - os: macos-latest
+          python-version: "3.13"
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: true
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: uv sync --locked --all-extras
+
+    - name: Run tests
+      run: uv run pytest --cov --cov-report=term
