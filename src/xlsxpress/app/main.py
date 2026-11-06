@@ -53,7 +53,7 @@ def _run_open(filename: Path) -> int:
     cleanup.clean_temp_dir(appdata.get_temp_dir(), app_config.cleanup)
     options = ConversionOptions(
         input_path=filename,
-        nrows=app_config.dialog.nrows,
+        nrows=app_config.dialog.nrows if app_config.dialog.preview else None,
         to_temp=app_config.dialog.to_temp,
         open_after=app_config.dialog.open_after,
         format_header=app_config.dialog.format_header,
