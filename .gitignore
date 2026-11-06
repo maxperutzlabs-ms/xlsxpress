@@ -8,3 +8,11 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Tool caches and outputs
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
