@@ -78,7 +78,7 @@ def _convert(options: ConversionOptions) -> Path:
         )
     except OSError as error:
         raise WriteError(
-            f"Could not create an xlsx file in {str(output_dir)!r}: "
+            f"Could not create an xlsx file in '{output_dir}': "
             f"{error.strerror or error}. Check that the folder is writable, or "
             "convert to the temp folder instead."
         ) from error

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
-from xlsxpress.cli import app
+import sys
 
-app()
+from xlsxpress.cli import main
+
+sys.exit(main())

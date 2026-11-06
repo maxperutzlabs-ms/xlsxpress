@@ -66,6 +66,6 @@ def reserve_output_path(
             continue
         return candidate
     raise FileExistsError(
-        f"Could not find a free file name for {stem!r} in {str(output_dir)!r}. "
+        f"Could not find a free file name for {stem!r} in '{output_dir}'. "
         "Delete or move old xlsx files from this folder."
     )

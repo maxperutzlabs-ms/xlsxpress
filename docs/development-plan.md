@@ -69,7 +69,7 @@ Bugs in code that will be removed are marked *(removed with PyApp)* and won't be
 - [x] Cleanup can crash when several conversions run at once
 - [ ] Dialog gives no output location after converting
 - [ ] Dialog row field stays active when preview is off
-- [ ] CLI has no `--version`
+- [x] CLI has no `--version`
 - [ ] `xlsxpress-app` crashes without the `gui` extra *(removed with PyApp)*
 - [ ] Uninstall leaves the PyApp environment behind *(removed with PyApp)*
 - [ ] Downloading a newer exe doesn't update the installed one *(removed with PyApp)*
@@ -82,7 +82,7 @@ Bugs in code that will be removed are marked *(removed with PyApp)* and won't be
 
 Every step ends with green checks (ruff, pyrefly, pytest) and its own commit or commits. For a bug, the test is written first and must fail; the fix follows in the same commit, so the branch never carries failing tests. Work happens on the `dev` branch. Tick fixed bugs in the [bug list](#bugs-to-fix) in the same commit, and update the decisions table when a step settles a decision.
 
-Steps 1–6 are done. Steps 7–11 below list the scope, the suggested design and what "done" means. A *suggested* design is a starting point: if the code shows a better way, take it and record the decision in the table.
+Steps 1–7 are done. Steps 8–11 below list the scope, the suggested design and what "done" means. A *suggested* design is a starting point: if the code shows a better way, take it and record the decision in the table.
 
 1. **Tooling.** Done.
 2. **CI.** Done.
@@ -90,23 +90,7 @@ Steps 1–6 are done. Steps 7–11 below list the scope, the suggested design an
 4. **Writer.** Done.
 5. **Reader.** Done.
 6. **Pipeline, paths and temp files.** Done. Its decisions are in the table (output files, temp files, temp cleanup, conversion warnings).
-
-### 7. CLI: typer → cyclopts
-
-Goal: the same commands and options as today on cyclopts, matching rawtrace-qc, ready for the `context-menu` subcommand in step 8.
-
-Scope:
-
-- Replace `typer` with `cyclopts>=4.8` in the dependencies (as in rawtrace-qc) and update `uv.lock`.
-- Keep the commands and options unchanged: `open FILE [--nrows/-n N] [--plain]` and `convert FILE [--nrows/-n N] [--plain] [--temp] [--open]`. `python -m xlsxpress` keeps working.
-- Add `--version`, printing the package version.
-- Exit codes: 0 for success, 1 for a `ConversionError` or a missing file, cyclopts' default for usage errors. Messages: `Error: ...` and `Warning: ...` on stderr, the output path on stdout.
-- Help texts say what each command does in one line. The `open` help says that the file is a temp copy that gets cleaned up.
-- Follow rawtrace-qc for the console entry point and `__main__.py` (`rawtrace_qc.cli:main`).
-
-Tests: CLI integration tests that call the cyclopts app with an argument list, for `convert`, `convert --temp`, `--nrows`, `--version`, an error exit code and a printed warning. Opening Excel is patched out (`open_in_default_app`).
-
-Bugs: CLI has no `--version`.
+7. **CLI: typer → cyclopts.** Done. `xlsxpress.cli:main` returns the exit code, as in rawtrace-qc: 0 for success, 1 for a conversion error (including a missing input file), cyclopts' code for invalid arguments. `Error: ...` and `Warning: ...` go to stderr as plain text, without color, and `Wrote <path>` to stdout.
 
 ### 8. Distribution switch: PyApp → uv tool
 
@@ -150,7 +134,7 @@ Goal: a non-developer can install, use, update and remove XlsxPress from the REA
 
 Scope:
 
-- **README:** what it does and why (the Excel conversion problem in two sentences); install with uv (installing uv itself, `uv tool install "xlsxpress[gui]"`, `xlsxpress context-menu register`), with pip as an alternative; usage from the CLI and from File Explorer (including Windows 11's "Show more options"); update (`uv tool upgrade xlsxpress`); uninstall (unregister first, then `uv tool uninstall`); manual registry cleanup commands for recovery.
+- **README:** what it does and why (the Excel conversion problem in two sentences); install with uv (installing uv itself, `uv tool install "xlsxpress[gui]"`, `xlsxpress context-menu register`), with pip as an alternative; usage from the CLI and from File Explorer (including Windows 11's "Show more options"); where temp files go and that they are deleted after 14 days or beyond 100 files, edited or not, so edits must be saved elsewhere; update (`uv tool upgrade xlsxpress`); uninstall (unregister first, then `uv tool uninstall`); manual registry cleanup commands for recovery.
 - **Conversion rules and limitations:** a user-facing summary of the decisions table: what stays text, what becomes a number or date, the 15-digit limit, missing values, `inf`, timezones, encodings, Excel limits. Suggested: `docs/conversion-rules.md`, linked from the README.
 - Fix the README bugs: install commands, the GIF URL (a raw URL, so PyPI shows it), context menu labels matching the code, and only claim CI/CD that exists.
 - `CHANGELOG.md` in the format used by rawtrace-qc, starting with 0.4.0.

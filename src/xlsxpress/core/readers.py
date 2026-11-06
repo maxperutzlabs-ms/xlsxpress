@@ -85,7 +85,7 @@ def read_table(path: Path, nrows: int | None = None) -> pl.DataFrame:
         )
     if not path.is_file():
         raise ReadError(
-            f"Input file {str(path)!r} does not exist or is not a file. Check the path."
+            f"Input file '{path}' does not exist or is not a file. Check the path."
         )
     try:
         if extension == ".parquet":

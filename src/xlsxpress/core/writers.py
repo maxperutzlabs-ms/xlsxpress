@@ -307,6 +307,6 @@ def _describe_write_error(output_path: Path, error: Exception) -> str:
     cause = error.args[0] if isinstance(error, XlsxFileError) and error.args else error
     reason = cause.strerror if isinstance(cause, OSError) and cause.strerror else cause
     return (
-        f"Could not write {str(output_path)!r}: {reason}. Check that the folder "
+        f"Could not write '{output_path}': {reason}. Check that the folder "
         "exists and is writable, and that there is enough free disk space."
     )
