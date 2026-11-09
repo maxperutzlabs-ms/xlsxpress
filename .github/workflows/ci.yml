@@ -73,3 +73,6 @@ jobs:
 
     - name: Run tests
       run: uv run pytest --cov --cov-report=term
+      env:
+        # The runner is disposable, so the round trip through the real registry runs only here.
+        XLSXPRESS_REGISTRY_TESTS: ${{ matrix.os == 'windows-latest' && '1' || '0' }}
