@@ -8,7 +8,7 @@ XlsxPress opens `.csv`, `.tsv`, `.txt` and `.parquet` files in Excel without cha
 
 You can use XlsxPress from the context menu of File Explorer on Windows, or from the command line on Windows, macOS and Linux.
 
-![Right-clicking a TSV file in File Explorer and selecting "Open in Excel (XlsxPress)", which starts Excel](https://raw.githubusercontent.com/maxperutzlabs-ms/xlsxpress/main/docs/assets/app-example.gif)
+![Right-clicking a TSV file in File Explorer and selecting "Open in Excel (XlsxPress)", which starts Excel](https://raw.githubusercontent.com/maxperutzlabs-ms/xlsxpress/media/docs/screenshots/context-menu-open-demo.gif)
 
 ## Install
 
