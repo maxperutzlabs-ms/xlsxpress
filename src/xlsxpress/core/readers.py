@@ -131,18 +131,29 @@ def _read_separated_text(
             df = _read_csv(path, separator, encoding, quote_char, nrows)
         except pl.exceptions.PolarsError:
             raise ReadError(_describe_text_error(path, separator, error)) from error
-        warnings.warn(
-            f"{path.name!r} has quotes that don't follow the usual quoting rules, so "
-            "it was read without quote handling. Quote characters are kept as part "
-            "of the values.",
-            ConversionWarning,
-            stacklevel=3,
-        )
+        # Polars 1.x reads a quote inside a field (`5" cable`) with quote handling,
+        # polars 2.x does not. Warn only if a field starts with a quote, so the
+        # behaviour is the same on both: that is where quotes are really kept.
+        if _has_leading_quote(df):
+            warnings.warn(
+                f"{path.name!r} has quotes that don't follow the usual quoting rules, "
+                "so it was read without quote handling. Quote characters are kept as "
+                "part of the values.",
+                ConversionWarning,
+                stacklevel=3,
+            )
     _warn_about_repeated_column_names(path, df, separator, encoding, quote_char)
     conversions = [_numeric_conversion(df[name]) for name in df.columns]
     return df.with_columns(
         conversion for conversion in conversions if conversion is not None
     )
+
+
+def _has_leading_quote(df: pl.DataFrame) -> bool:
+    """Whether a column name or text value starts with a double quote."""
+    if any(name.startswith('"') for name in df.columns):
+        return True
+    return any(df[name].str.starts_with('"').any() for name in df.columns)
 
 
 def _read_csv(

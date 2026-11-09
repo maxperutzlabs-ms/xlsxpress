@@ -265,6 +265,12 @@ class TestReadTableQuoting:
 
         assert df.rows() == [('"5 inch" cable', 1)]
 
+    def test_read_table_keeps_quotes_inside_fields_of_several_rows(self, tmp_path: Path, no_warnings: None) -> None:
+        path = tmp_path / "data.tsv"
+        path.write_text('name\tvalue\nab"c\t1\nx\t2\n', encoding="utf-8")
+
+        assert read_table(path).rows() == [('ab"c', 1), ("x", 2)]
+
 
 class TestReadTableHeader:
     def test_read_table_warns_about_repeated_column_names(self, tmp_path: Path) -> None:
