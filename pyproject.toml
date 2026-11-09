@@ -27,10 +27,10 @@ classifiers = [
 requires-python = ">=3.12"
 dependencies = [
     "polars>=1.18",
-    "xlsxwriter>=3.2",
+    "xlsxwriter>=3.2.1",
     "platformdirs>=4.0",
     "cyclopts>=4.8",
-    "customtkinter>=5.2",
+    "customtkinter>=5.2.1",
 ]
 
 [project.urls]
