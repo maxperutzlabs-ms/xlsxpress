@@ -42,3 +42,10 @@
 - Cleanup of the temp folder could fail when several conversions ran at the same time.
 - A workbook that was written but could not be opened was reported as a failed conversion.
 - Read errors showed a traceback on the command line and a general error message in the context menu.
+
+### Dependencies
+- `cyclopts>=5.0` replaces `typer` for the command line.
+- `customtkinter>=5.2.1` is now a required dependency instead of part of the `gui` extra. 5.2.0 and older don't work on Python 3.12 and newer.
+- `polars>=1.18` instead of `>=1.0`.
+- `xlsxwriter>=3.2.1` instead of `>=3.2`.
+- `platformdirs>=2.1` instead of `>=4.0`.

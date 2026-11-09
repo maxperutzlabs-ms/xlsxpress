@@ -1,14 +1,25 @@
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import pytest
 
 from xlsxpress.core import paths
-from xlsxpress.core.paths import get_temp_dir, get_work_dir, reserve_output_path
+from xlsxpress.core.paths import get_cache_dir, get_temp_dir, get_work_dir, reserve_output_path
 
 pytestmark = pytest.mark.unit
+
+
+class TestGetCacheDir:
+    def test_get_cache_dir_returns_the_platform_cache_folder_without_an_author_folder(self) -> None:
+        cache_dir = get_cache_dir()
+
+        expected_tail = ("xlsxpress", "Cache") if sys.platform == "win32" else ("xlsxpress",)
+        assert cache_dir.is_absolute()
+        assert cache_dir.parts[-len(expected_tail) :] == expected_tail
+        assert cache_dir.parts.count("xlsxpress") == 1
 
 
 class TestGetTempDir:

@@ -394,8 +394,8 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "customtkinter", specifier = ">=5.2.1" },
-    { name = "cyclopts", specifier = ">=4.8" },
-    { name = "platformdirs", specifier = ">=4.0" },
+    { name = "cyclopts", specifier = ">=5.0" },
+    { name = "platformdirs", specifier = ">=2.1" },
     { name = "polars", specifier = ">=1.18" },
     { name = "xlsxwriter", specifier = ">=3.2.1" },
 ]

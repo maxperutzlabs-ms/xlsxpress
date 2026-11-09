@@ -116,11 +116,12 @@ class TestConvert:
         assert "Traceback" not in captured.err
         assert captured.out == ""
 
-    def test_convert_rejects_a_row_count_below_one(self, input_file: Path) -> None:
+    @pytest.mark.parametrize("arguments", [["--nrows", "0"], ["--nrows", "abc"], ["--unknown-option"]])
+    def test_convert_rejects_invalid_arguments_with_exit_code_2(self, input_file: Path, arguments: list[str]) -> None:
         with pytest.raises(SystemExit) as exit_info:
-            main(["convert", str(input_file), "--nrows", "0"])
+            main(["convert", str(input_file), *arguments])
 
-        assert exit_info.value.code not in (0, None)
+        assert exit_info.value.code == 2
         assert not input_file.with_suffix(".xlsx").exists()
 
 
