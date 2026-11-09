@@ -118,11 +118,12 @@ Goal: tagging a version publishes it to PyPI without manual steps.
 
 Scope:
 
-- `.github/workflows/release.yml` on tags `v*`: run the CI checks, `uv build`, check that the tag matches the version in `pyproject.toml`, publish with PyPI trusted publishing (`pypa/gh-action-pypi-publish`), create a GitHub release with the changelog section.
-- **Manual step for David:** set up the trusted publisher for `xlsxpress` on PyPI (repository, workflow name, environment).
+- `.github/workflows/release.yml` on tags `v*`. Written on 2026-11-09, not yet run. Jobs in order: validate (tag matches `version` in `pyproject.toml`, newest changelog entry is `## [X.Y.Z] - YYYY-MM-DD`), the CI checks (`ci.yml` is called as a reusable workflow), `uv build` with a smoke test of the wheel (`xlsxpress --version`), publish to PyPI with trusted publishing (`pypa/gh-action-pypi-publish`, environment `pypi`), then a GitHub release with the newest changelog entry and the built files. PyPI comes before the GitHub release because a version can never be uploaded to PyPI again, while a GitHub release can be redone.
+- Release tags start with `v`. The older tags `0.1.0` to `0.3.0` were renamed to `v0.1.0` to `v0.3.0` on 2026-11-09, with the same tagger, date and message.
+- ~~**Manual step for David:** set up the trusted publisher for `xlsxpress` on PyPI (repository, workflow name, environment).~~ Done on 2026-11-09, together with the GitHub environment `pypi`, which allows only `v*` tags.
 - Check the dependency lower bounds (`polars>=1.0` is far below the tested 1.41): raise them to versions that work, or add a CI job with `uv sync --resolution lowest-direct`. Polars done on 2026-11-06: raised to `polars>=1.18`. The full test suite passes on the latest patch of every minor version from 1.18 to 1.41. Below 1.18 the tests can't be collected because `pl.Int128` is missing. With that attribute stubbed, 1.10 to 1.17 pass all other tests, while 1.9 and older fail real reader and writer tests (e.g. no warning for irregular quotes, `OverflowError` for large integers). The other dependencies are still unchecked.
-- Classifier `Development Status :: 4 - Beta`; version 0.4.0; ~~add `.coverage` and `htmlcov/` to `.gitignore`~~ (done 2026-11-06).
-- Merge `dev` into `main` (ask David first), then tag.
+- ~~Classifier `Development Status :: 4 - Beta`~~ (done 2026-11-09); version 0.4.0 (with `uv lock`) and the release date in `CHANGELOG.md`; ~~add `.coverage` and `htmlcov/` to `.gitignore`~~ (done 2026-11-06).
+- Tag `v0.4.0` on `main` and push the tag (ask David first). The release workflow was merged into `main` on 2026-11-09.
 
 The writer came before the reader because its decisions were settled and it could be tested on its own. The distribution switch comes before the dialog fixes, so no time goes into code that gets removed. The CLI switches to cyclopts before the distribution switch, so the new `context-menu` subcommand is written in cyclopts right away.
 
