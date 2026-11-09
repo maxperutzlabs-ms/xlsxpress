@@ -1,6 +1,6 @@
 # XlsxPress development plan
 
-Status: 2026-11-06. Based on the project review of the same date.
+Status: 2026-11-09. Based on the project review of 2026-11-06.
 
 ## Overview of changes
 
@@ -87,7 +87,7 @@ Bugs in code that will be removed are marked *(removed with PyApp)* and won't be
 
 Every step ends with green checks (ruff, pyrefly, pytest) and its own commit or commits. For a bug, the test is written first and must fail; the fix follows in the same commit, so the branch never carries failing tests. Work happens on the `dev` branch. Tick fixed bugs in the [bug list](#bugs-to-fix) in the same commit, and update the decisions table when a step settles a decision.
 
-Steps 1–9 are done. Steps 10–11 below list the scope, the suggested design and what "done" means. A *suggested* design is a starting point: if the code shows a better way, take it and record the decision in the table.
+Steps 1–10 are done. Step 11 below lists the scope, what is done and what is still missing. A *suggested* design is a starting point: if the code shows a better way, take it and record the decision in the table.
 
 1. **Tooling.** Done.
 2. **CI.** Done.
@@ -99,18 +99,7 @@ Steps 1–9 are done. Steps 10–11 below list the scope, the suggested design a
 8. **Distribution switch: PyApp → uv tool.** Done. `uv tool install xlsxpress` plus `xlsxpress context-menu register` gives the full feature set. The context menu runs `pythonw.exe -m xlsxpress.app open|dialog FILE` (`xlsxpress/app/__main__.py`); the app has no launcher route anymore. `xlsxpress context-menu register | unregister | status` manage the entries; on macOS and Linux they exit with an error. The PyApp code is gone: installer, launcher window, self-update, build script, install manifest, `xlsxpress-app` script and exe path helpers. `customtkinter` became a required dependency and the `gui` extra is gone, so the planned check for the extra wasn't needed. Config and log moved from `app/appdata.py` and `app/config.py` to `xlsxpress/config.py`, so the CLI reads its settings without the app package; the CLI still imports `app.context_menu` for its `context-menu` commands, which is where that code belongs. Checked with a real `uv tool install .`: `register` writes the expected commands and `status` reads them back. The right-click entries themselves still need a look by hand.
 9. **Conversion dialog.** Done. Its decisions are in the table (context menu entries, conversion dialog). The decisions live in `app/gui/dialog_logic.py` and are unit tested; the window in `app/gui/dialog.py` only reads widgets and shows outcomes. The worker thread hands its outcome to the Tk main thread through a queue polled with `after()`. All states were checked by driving the real window from a script and taking screenshots; "Show in folder" (`explorer /select,`) and the window on a second monitor still need a look by hand. Two changes came first, each in its own commit: unfinished workbooks are written to a work folder (table: output files, temp cleanup), and a file that was written but couldn't be opened raises `OpenOutputError` (table: opening the written file fails).
 
-### 10. Documentation
-
-Goal: a non-developer can install, use, update and remove XlsxPress from the README alone.
-
-Scope:
-
-- **README:** what it does and why (the Excel conversion problem in two sentences); install with uv (installing uv itself, `uv tool install xlsxpress`, `xlsxpress context-menu register`), with pip as an alternative; usage from the CLI and from File Explorer (including Windows 11's "Show more options"); where temp files go and that they are deleted after 14 days or beyond 100 files, edited or not, so edits must be saved elsewhere; update (`uv tool upgrade xlsxpress`); uninstall (unregister first, then `uv tool uninstall`); manual registry cleanup commands for recovery.
-- **Conversion rules and limitations:** a user-facing summary of the decisions table: what stays text, what becomes a number or date, the 15-digit limit, missing values, `inf`, timezones, encodings, Excel limits. Done in the README itself; a separate `docs/conversion-rules.md` was dropped on 2026-11-06.
-- Fix the README bugs: install commands, the GIF URL (a raw URL, so PyPI shows it), context menu labels matching the code, and only claim CI/CD that exists.
-- `CHANGELOG.md` in the format used by rawtrace-qc, starting with 0.4.0.
-- ~~Migration note for PyApp users.~~ Dropped on 2026-11-06; `context-menu register` and `status` explain what to do.
-- Check all docstrings against the code (bug: outdated docstrings).
+10. **Documentation.** Done. A non-developer can install, use, update and remove XlsxPress from the README alone. The README covers what XlsxPress does and why, install with uv (and pip), usage from File Explorer (including Windows 11's "Show more options") and the CLI, the temp folder and its cleanup, conversion rules and limitations, update, uninstall and manual registry cleanup. The conversion rules live in the README itself; a separate `docs/conversion-rules.md` and a migration note for PyApp users were dropped on 2026-11-06. `CHANGELOG.md` uses the format of rawtrace-qc and starts with 0.4.0. Docstrings were checked against the code. Leftover PyApp build files (`build/pyapp/`, old exe files and wheels in `dist/`) were deleted locally on 2026-11-09.
 
 ### 11. CD and release 0.4.0
 
@@ -118,12 +107,17 @@ Goal: tagging a version publishes it to PyPI without manual steps.
 
 Scope:
 
-- `.github/workflows/release.yml` on tags `v*`. Written on 2026-11-09, not yet run. Jobs in order: validate (tag matches `version` in `pyproject.toml`, newest changelog entry is `## [X.Y.Z] - YYYY-MM-DD`), the CI checks (`ci.yml` is called as a reusable workflow), `uv build` with a smoke test of the wheel (`xlsxpress --version`), publish to PyPI with trusted publishing (`pypa/gh-action-pypi-publish`, environment `pypi`), then a GitHub release with the newest changelog entry and the built files. PyPI comes before the GitHub release because a version can never be uploaded to PyPI again, while a GitHub release can be redone.
-- Release tags start with `v`. The older tags `0.1.0` to `0.3.0` were renamed to `v0.1.0` to `v0.3.0` on 2026-11-09, with the same tagger, date and message.
-- ~~**Manual step for David:** set up the trusted publisher for `xlsxpress` on PyPI (repository, workflow name, environment).~~ Done on 2026-11-09, together with the GitHub environment `pypi`, which allows only `v*` tags.
-- Check the dependency lower bounds (`polars>=1.0` is far below the tested 1.41): raise them to versions that work, or add a CI job with `uv sync --resolution lowest-direct`. Polars done on 2026-11-06: raised to `polars>=1.18`. The full test suite passes on the latest patch of every minor version from 1.18 to 1.41. Below 1.18 the tests can't be collected because `pl.Int128` is missing. With that attribute stubbed, 1.10 to 1.17 pass all other tests, while 1.9 and older fail real reader and writer tests (e.g. no warning for irregular quotes, `OverflowError` for large integers). The other dependencies are still unchecked.
-- ~~Classifier `Development Status :: 4 - Beta`~~ (done 2026-11-09); version 0.4.0 (with `uv lock`) and the release date in `CHANGELOG.md`; ~~add `.coverage` and `htmlcov/` to `.gitignore`~~ (done 2026-11-06).
-- Tag `v0.4.0` on `main` and push the tag (ask David first). The release workflow was merged into `main` on 2026-11-09.
+- [x] `.github/workflows/release.yml` on tags `v*`. Written on 2026-11-09 and merged into `main`; it runs for the first time with the `v0.4.0` tag. Jobs in order: validate (tag matches `version` in `pyproject.toml`, newest changelog entry is `## [X.Y.Z] - YYYY-MM-DD`), the CI checks (`ci.yml` is called as a reusable workflow), `uv build` with a smoke test of the wheel (`xlsxpress --version`), publish to PyPI with trusted publishing (`pypa/gh-action-pypi-publish`, environment `pypi`), then a GitHub release with the newest changelog entry and the built files. PyPI comes before the GitHub release because a version can never be uploaded to PyPI again, while a GitHub release can be redone.
+- [x] Release tags start with `v`. The older tags `0.1.0` to `0.3.0` were renamed to `v0.1.0` to `v0.3.0` on 2026-11-09, with the same tagger, date and message.
+- [x] Trusted publisher for `xlsxpress` on PyPI (repository, workflow name, environment), set up by David on 2026-11-09, together with the GitHub environment `pypi`, which allows only `v*` tags.
+- [x] Classifier `Development Status :: 4 - Beta` (done 2026-11-09).
+- [x] `.coverage` and `htmlcov/` in `.gitignore` (done 2026-11-06).
+- [x] Polars lower bound: raised to `polars>=1.18` on 2026-11-06. The full test suite passes on the latest patch of every minor version from 1.18 to 1.41. Below 1.18 the tests can't be collected because `pl.Int128` is missing. With that attribute stubbed, 1.10 to 1.17 pass all other tests, while 1.9 and older fail real reader and writer tests (e.g. no warning for irregular quotes, `OverflowError` for large integers).
+- [ ] Lower bounds of the other dependencies (`xlsxwriter`, `platformdirs`, `cyclopts`, `customtkinter`): raise them to versions that work.
+- [ ] Manual checks left over from steps 8 and 9: the right-click entries themselves, "Show in folder" and the dialog on a second monitor.
+- [ ] Version 0.4.0 in `pyproject.toml` (with `uv lock`) and the release date in `CHANGELOG.md`, in one commit; the release workflow checks both against the tag.
+- [ ] CI is green on `main` for the release commit.
+- [ ] Tag `v0.4.0` on `main` and push the tag (ask David first).
 
 The writer came before the reader because its decisions were settled and it could be tested on its own. The distribution switch comes before the dialog fixes, so no time goes into code that gets removed. The CLI switches to cyclopts before the distribution switch, so the new `context-menu` subcommand is written in cyclopts right away.
 
