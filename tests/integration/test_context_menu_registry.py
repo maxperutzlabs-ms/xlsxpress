@@ -14,19 +14,6 @@ pytestmark = pytest.mark.integration
 windows_only = pytest.mark.skipif(sys.platform != "win32", reason="The context menu uses the Windows registry")
 
 _TEST_ROOT = r"Software\xlsxpress-tests"
-_PYAPP_EXE = r"C:\Users\jane\AppData\Local\perutzms\xlsxpress\xlsxpress.exe"
-
-
-def _write_pyapp_entry(extension: str = ".csv") -> None:
-    import winreg
-
-    entry = context_menu.ENTRIES[0]
-    key_path = rf"{context_menu._REGISTRY_ROOT}\{extension}\shell\{entry.registry_key}"
-    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path) as key:
-        winreg.SetValueEx(key, None, 0, winreg.REG_SZ, entry.label)
-        winreg.SetValueEx(key, "Icon", 0, winreg.REG_SZ, _PYAPP_EXE)
-    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, rf"{key_path}\command") as key:
-        winreg.SetValueEx(key, None, 0, winreg.REG_SZ, f'{_PYAPP_EXE} open "%1"')
 
 
 def _read_value(key_path: str, name: str) -> str | None:
@@ -87,16 +74,6 @@ class TestRegistryRoundTrip:
         key_path = rf"{test_registry_root}\.parquet\shell\{entry.registry_key}"
         assert _read_value(key_path, "") == entry.label
 
-    def test_register_replaces_a_pyapp_entry_and_removes_its_icon(self, test_registry_root: str, pythonw: Path) -> None:
-        _write_pyapp_entry()
-
-        context_menu.register(pythonw)
-
-        entry = context_menu.ENTRIES[0]
-        key_path = rf"{test_registry_root}\.csv\shell\{entry.registry_key}"
-        assert _read_value(key_path, "Icon") is None
-        assert not any(registered.is_pyapp for registered in context_menu.read_entries())
-
 
 @windows_only
 class TestContextMenuCommands:
@@ -142,27 +119,17 @@ class TestContextMenuCommands:
         assert capsys.readouterr().err == "Error: Found no 'pythonw.exe'\n"
         assert context_menu.read_entries() == []
 
-    def test_register_explains_how_to_remove_a_replaced_pyapp_installation(
-        self, test_registry_root: str, pythonw: Path, tool_environment: None, capsys: pytest.CaptureFixture[str]
+    def test_status_warns_about_missing_entries(
+        self, test_registry_root: str, pythonw: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        _write_pyapp_entry()
-
-        main(["context-menu", "register"])
-
-        out = capsys.readouterr().out
-        assert f"Found an old XlsxPress installation ('{_PYAPP_EXE}'). Its context menu entries were replaced." in out
-        assert f'"{_PYAPP_EXE}" self remove' in out
-
-    def test_status_reports_pyapp_entries_and_missing_entries(
-        self, test_registry_root: str, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        _write_pyapp_entry()
+        context_menu.register(pythonw)
+        entry = context_menu.ENTRIES[0]
+        context_menu._delete_key_tree(rf"{test_registry_root}\.csv\shell\{entry.registry_key}")
 
         main(["context-menu", "status"])
 
         captured = capsys.readouterr()
-        assert "Context menu: 1 of 8 entries registered" in captured.out
-        assert "Run 'xlsxpress context-menu register' to replace its context menu entries." in captured.out
+        assert "Context menu: 7 of 8 entries registered" in captured.out
         assert "Warning: Some entries are missing." in captured.err
 
     def test_status_warns_if_the_registered_python_no_longer_exists(

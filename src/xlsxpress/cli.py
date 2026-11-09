@@ -133,11 +133,10 @@ def register() -> int:
     """Add the XlsxPress entries to the context menu of csv, tsv, txt and parquet files.
 
     The entries run XlsxPress from this installation. Running the command again
-    replaces existing entries, including those of an older installation.
+    replaces existing entries.
     """
     if not _check_platform():
         return 1
-    old_entries = context_menu.read_entries()
     try:
         pythonw = context_menu.find_pythonw()
     except FileNotFoundError as error:
@@ -163,7 +162,6 @@ def register() -> int:
     for entry in context_menu.ENTRIES:
         print(f"  {entry.label}")
     print('On Windows 11, they are under "Show more options".')
-    _print_pyapp_note(old_entries, replaced=True)
     return 0
 
 
@@ -215,7 +213,7 @@ def _print_status_problems(
     register_hint = "Run 'xlsxpress context-menu register' to fix it."
     if entries and len(entries) < total:
         print(f"Warning: Some entries are missing. {register_hint}", file=sys.stderr)
-    programs = dict.fromkeys(entry.program for entry in entries if not entry.is_pyapp)
+    programs = dict.fromkeys(entry.program for entry in entries)
     for program in programs:
         if program is None or not program.is_file():
             print(
@@ -223,24 +221,3 @@ def _print_status_problems(
                 f"do not work. {register_hint}",
                 file=sys.stderr,
             )
-    _print_pyapp_note(entries, replaced=False)
-
-
-def _print_pyapp_note(
-    entries: list[context_menu.RegisteredEntry], *, replaced: bool
-) -> None:
-    """Explain how to remove an old PyApp installation found in `entries`."""
-    pyapp_programs = dict.fromkeys(entry.program for entry in entries if entry.is_pyapp)
-    for program in pyapp_programs:
-        if replaced:
-            action = "Its context menu entries were replaced."
-        else:
-            action = (
-                "Run 'xlsxpress context-menu register' to replace its context menu "
-                "entries."
-            )
-        print(
-            f"Note: Found an old XlsxPress installation ('{program}'). {action} "
-            f"To remove it, run '\"{program}\" self remove', which deletes the Python "
-            "environment it installed, then delete the exe file."
-        )

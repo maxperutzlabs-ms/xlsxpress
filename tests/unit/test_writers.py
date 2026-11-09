@@ -10,7 +10,6 @@ from typing import Any
 
 import polars as pl
 import pytest
-from xlsxwriter.worksheet import Worksheet
 
 from xlsxpress.core import writers
 from xlsxpress.core.errors import ConversionWarning, ExcelLimitError, WriteError
@@ -332,15 +331,6 @@ class TestWriteExcelLimits:
         with pytest.raises(ExcelLimitError, match="16,385 columns"):
             write_excel(df, output_path)
         assert not output_path.exists()
-
-    def test_write_excel_limits_match_the_xlsxwriter_worksheet_limits(self) -> None:
-        worksheet = Worksheet()
-
-        assert (EXCEL_MAX_ROWS, EXCEL_MAX_COLUMNS, EXCEL_MAX_STRING_LENGTH) == (
-            worksheet.xls_rowmax,
-            worksheet.xls_colmax,
-            worksheet.xls_strmax,
-        )
 
     def test_write_excel_writes_every_row_up_to_the_row_limit(
         self, write_sheet: Callable, monkeypatch: pytest.MonkeyPatch

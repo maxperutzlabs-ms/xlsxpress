@@ -43,8 +43,6 @@ ENTRIES = (
 
 #: Registry key below HKCU that holds the entries per extension. Tests replace it.
 _REGISTRY_ROOT = r"Software\Classes\SystemFileAssociations"
-#: Name of the executable that ran the entries before version 0.4.0 (PyApp).
-_PYAPP_EXE_NAME = "xlsxpress.exe"
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,12 +63,6 @@ class RegisteredEntry:
     def program(self) -> Path | None:
         """The program the command runs, or None if the command is empty."""
         return command_program(self.command)
-
-    @property
-    def is_pyapp(self) -> bool:
-        """True if the command runs the `xlsxpress.exe` of an old PyApp install."""
-        program = self.program
-        return program is not None and program.name.lower() == _PYAPP_EXE_NAME
 
 
 def is_supported_platform() -> bool:
@@ -153,9 +145,6 @@ def is_uv_tool_environment(prefix: str | Path | None = None) -> bool:
 def register(pythonw: Path) -> None:
     """Create or overwrite the context menu entries for all extensions.
 
-    Overwriting also replaces entries of an older installation, for example one
-    made with PyApp.
-
     Args:
         pythonw: The windowless Python that runs the entries, see `find_pythonw`.
 
@@ -169,11 +158,6 @@ def register(pythonw: Path) -> None:
             shell_key = _shell_key(extension, entry)
             with winreg.CreateKey(winreg.HKEY_CURRENT_USER, shell_key) as key:
                 winreg.SetValueEx(key, None, 0, winreg.REG_SZ, entry.label)
-                try:
-                    # Remove the icon an old PyApp registration pointed at its exe.
-                    winreg.DeleteValue(key, "Icon")
-                except OSError:
-                    pass
             with winreg.CreateKey(
                 winreg.HKEY_CURRENT_USER, rf"{shell_key}\command"
             ) as key:

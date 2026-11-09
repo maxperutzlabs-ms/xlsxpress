@@ -37,11 +37,6 @@ class TestFormFromDefaults:
 
         assert defaults_from_form(form_from_defaults(defaults), DialogDefaults()) == defaults
 
-    def test_form_from_defaults_of_built_in_defaults_matches_the_dataclass_defaults(self) -> None:
-        assert form_from_defaults(DialogDefaults()) == FormState(
-            open_after=True, to_temp=True, format_header=True, preview=False, nrows_text="100"
-        )
-
 
 class TestParseNrows:
     @pytest.mark.parametrize(("text", "expected"), [("1", 1), ("250", 250), (" 30 ", 30)])

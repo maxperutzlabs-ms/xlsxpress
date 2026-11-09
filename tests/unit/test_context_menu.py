@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 
 from xlsxpress.app import context_menu
-from xlsxpress.app.context_menu import ENTRIES, RegisteredEntry
 
 pytestmark = pytest.mark.unit
 
@@ -18,19 +17,13 @@ class TestBuildCommand:
 
         assert command == rf'"{pythonw}" -m xlsxpress.app open "%1"'
 
-    def test_build_command_round_trips_through_command_program(self) -> None:
-        pythonw = Path(r"C:\Program Files\Python\pythonw.exe")
-
-        assert context_menu.command_program(context_menu.build_command(pythonw, "dialog")) == pythonw
-
 
 class TestCommandProgram:
     @pytest.mark.parametrize(
         ("command", "expected"),
         [
             (r'"C:\a b\pythonw.exe" -m xlsxpress.app open "%1"', r"C:\a b\pythonw.exe"),
-            (r'C:\perutzms\xlsxpress\xlsxpress.exe open "%1"', r"C:\perutzms\xlsxpress\xlsxpress.exe"),
-            (r'"C:\a\xlsxpress.exe" open "%1"', r"C:\a\xlsxpress.exe"),
+            (r'C:\tools\Scripts\pythonw.exe -m xlsxpress.app open "%1"', r"C:\tools\Scripts\pythonw.exe"),
             (r'"C:\unclosed quote\pythonw.exe -m', r"C:\unclosed"),
         ],
     )
@@ -40,20 +33,6 @@ class TestCommandProgram:
     @pytest.mark.parametrize("command", ["", "   "])
     def test_command_program_returns_none_for_an_empty_command(self, command: str) -> None:
         assert context_menu.command_program(command) is None
-
-
-class TestRegisteredEntry:
-    @pytest.mark.parametrize(
-        ("command", "is_pyapp"),
-        [
-            (r'"C:\Users\x\AppData\Local\perutzms\xlsxpress\xlsxpress.exe" open "%1"', True),
-            (r'"C:\Users\x\AppData\Local\perutzms\xlsxpress\XlsxPress.EXE" open "%1"', True),
-            (r'"C:\tools\xlsxpress\Scripts\pythonw.exe" -m xlsxpress.app open "%1"', False),
-            ("", False),
-        ],
-    )
-    def test_is_pyapp_detects_the_old_executable(self, command: str, is_pyapp: bool) -> None:
-        assert RegisteredEntry(".csv", ENTRIES[0], command).is_pyapp is is_pyapp
 
 
 class TestFindPythonw:

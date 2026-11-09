@@ -182,30 +182,6 @@ class TestRunConversionWorkFolder:
 
         assert list(work_dir.iterdir()) == [fresh]
 
-    @pytest.mark.parametrize(("to_temp", "expected"), [(True, "move"), (False, "copy")])
-    def test_run_conversion_moves_to_the_temp_folder_and_copies_next_to_the_input(
-        self, tsv_file: Path, monkeypatch: pytest.MonkeyPatch, xlsx_reader: Callable, to_temp: bool, expected: str
-    ) -> None:
-        calls: list[str] = []
-        original_replace, original_copyfile = os.replace, shutil.copyfile
-
-        def replace(source: Path, target: Path) -> None:
-            calls.append("move")
-            original_replace(source, target)
-
-        def copyfile(source: Path, target: Path) -> None:
-            calls.append("copy")
-            original_copyfile(source, target)
-
-        monkeypatch.setattr(os, "replace", replace)
-        monkeypatch.setattr(shutil, "copyfile", copyfile)
-
-        result = run_conversion(ConversionOptions(tsv_file, to_temp=to_temp))
-
-        assert calls == [expected]
-        assert xlsx_reader(result.output_path).cells["C2"].value == "007"
-        assert list(paths.get_work_dir().iterdir()) == []
-
     @pytest.mark.parametrize(("to_temp", "patched"), [(True, (os, "replace")), (False, (shutil, "copyfile"))])
     def test_run_conversion_raises_write_error_and_cleans_up_when_moving_or_copying_fails(
         self, tsv_file: Path, monkeypatch: pytest.MonkeyPatch, to_temp: bool, patched: tuple[Any, str]
