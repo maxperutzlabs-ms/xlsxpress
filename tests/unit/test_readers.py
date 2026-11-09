@@ -271,6 +271,15 @@ class TestReadTableQuoting:
 
         assert read_table(path).rows() == [('ab"c', 1), ("x", 2)]
 
+    def test_read_table_keeps_irregular_quotes_in_the_header_with_warning(self, tmp_path: Path) -> None:
+        path = tmp_path / "data.tsv"
+        path.write_text('"5 inch" cable\tvalue\nx\t1\n', encoding="utf-8")
+
+        with pytest.warns(ConversionWarning, match="without quote handling"):
+            df = read_table(path)
+
+        assert df.columns == ['"5 inch" cable', "value"]
+
 
 class TestReadTableHeader:
     def test_read_table_warns_about_repeated_column_names(self, tmp_path: Path) -> None:

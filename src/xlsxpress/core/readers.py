@@ -8,6 +8,7 @@ when every value in it is an unambiguous number, so identifiers such as `007` or
 from __future__ import annotations
 
 import codecs
+import csv
 import warnings
 from pathlib import Path
 
@@ -119,6 +120,10 @@ def _read_separated_text(
     separator = separator or _sniff_separator(path, encoding)
     quote_char: str | None = '"'
     try:
+        if _header_has_irregular_quotes(path, separator, encoding):
+            # Polars would silently strip quotes from such a header, so skip to
+            # the fallback below.
+            raise pl.exceptions.ComputeError("irregular quotes in the header")
         df = _read_csv(path, separator, encoding, quote_char, nrows)
     except pl.exceptions.NoDataError as error:
         raise ReadError(f"{path.name!r} is empty.") from error
@@ -147,6 +152,21 @@ def _read_separated_text(
     return df.with_columns(
         conversion for conversion in conversions if conversion is not None
     )
+
+
+def _header_has_irregular_quotes(path: Path, separator: str, encoding: str) -> bool:
+    """Whether the header row has a quoted field that isn't fully quoted.
+
+    Polars silently alters such a header, e.g. `"5 inch" cable` becomes
+    `5 inch" cabl`. Only the first record is parsed, so this is cheap.
+    """
+    codec = "utf-8-sig" if encoding == "utf-8" else encoding
+    with path.open(newline="", encoding=codec) as file:
+        try:
+            next(csv.reader(file, delimiter=separator, strict=True), None)
+        except csv.Error:
+            return True
+    return False
 
 
 def _has_leading_quote(df: pl.DataFrame) -> bool:
