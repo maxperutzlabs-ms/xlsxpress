@@ -59,16 +59,17 @@ By default, **Open in Excel (XlsxPress)** converts all rows, formats the header 
 
 ### Use the conversion dialog
 
-The dialog shows these options:
+Under **Options**, the dialog shows these checkboxes:
 
-- **Open in Excel after conversion** opens the workbook when the conversion is complete. **Open in Excel (XlsxPress)** ignores this option and always opens the workbook.
-- **Save to temp directory** saves the workbook in the temp folder. If you turn this option off, XlsxPress saves the workbook next to the original file.
 - **Format header row** makes the header row bold, wraps long column names, keeps the header row visible while you scroll, and adds filter buttons.
-- **Preview only (limit rows)** converts only the first rows of the file. Enter the number of rows in the **Rows** field. Use this option to look at large files quickly.
+- **Open in Excel after conversion** opens the workbook when the conversion is complete. **Open in Excel (XlsxPress)** ignores this option and always opens the workbook.
+- **Convert only the first [N] rows** converts only the first rows of the file. Enter the number of rows in the field. Use this option to look at large files quickly.
 
-Click **Convert** to start the conversion. When the conversion is complete, the dialog shows where XlsxPress saved the workbook, and **Show in folder** opens that folder in File Explorer. The dialog closes by itself if it opened the workbook in Excel and has no warnings to show.
+Under **Save workbook**, choose where XlsxPress saves the workbook: **Temp folder** or **Next to original**. Workbooks in the temp folder are deleted after some time (see [Where XlsxPress saves workbooks](#where-xlsxpress-saves-workbooks)). XlsxPress never overwrites an existing file.
 
-To save the current options as your defaults, click **Update default options**. These defaults apply to the dialog and to **Open in Excel (XlsxPress)**. Click **Reset** to set the options back to the built-in defaults; XlsxPress saves them only when you click **Update default options**.
+Click **Convert** to start the conversion. When the conversion is complete, the dialog shows where XlsxPress saved the workbook, and **Show in folder** opens that folder in File Explorer. Warnings and errors appear in the same place. After a conversion, **Convert** becomes **Close**. The dialog closes by itself if it opened the workbook in Excel and has no warnings to show.
+
+To save the current options as your defaults, click **Save as default**. These defaults apply to the dialog and to **Open in Excel (XlsxPress)**. Click **Reset** to set the options back to the built-in defaults; XlsxPress saves them only when you click **Save as default**. **About** explains these buttons and shows where the temp folder and the settings file are.
 
 ## Use the command line
 

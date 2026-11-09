@@ -22,7 +22,9 @@
 - XlsxPress never overwrites a file and adds a number to the name instead (`data-02.xlsx`). It writes each workbook to a work folder first, so a file under the output name is always complete.
 - The command line, the context menu and the conversion dialog share one temp folder, `%LOCALAPPDATA%\xlsxpress\Cache\temp` on Windows. Names in the temp folder contain the date and time, and XlsxPress deletes workbooks there after 14 days or when there are more than 100.
 - **Open in Excel (XlsxPress)** always opens the workbook, whatever the default of **Open in Excel after conversion** is.
-- The **Rows** field of the conversion dialog is active only with **Preview only (limit rows)**.
+- The conversion dialog and its About window have a new, card-based design that looks the same in light and dark Windows mode. The switches became checkboxes, **Save to temp directory** became a choice between **Temp folder** and **Next to original**, **Preview only (limit rows)** and the **Rows** field became **Convert only the first [N] rows**, and **Update default options** became **Save as default**. The row limit field is active only when its checkbox is checked.
+- The conversion dialog shows the result, the warnings or the error of a conversion in a banner below the options.
+- The buttons and checkboxes of the conversion dialog can be used with the keyboard: **Tab** moves between them, **Space** or **Enter** activates them, **Enter** elsewhere converts, and **Esc** closes the dialog.
 - The command line shows errors as short messages without a traceback and returns exit code 1 when a conversion fails.
 
 ### Removed
