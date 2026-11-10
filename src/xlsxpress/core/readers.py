@@ -81,7 +81,8 @@ def read_table(path: Path, nrows: int | None = None) -> pl.DataFrame:
     Raises:
         UnsupportedFormatError: If the file extension is not supported.
         ReadError: If the file does not exist, cannot be opened, is empty, contains
-            NUL bytes without a byte order mark, or cannot be read as a table.
+            NUL bytes without a byte order mark, is not valid text in the encoding
+            of its byte order mark, or cannot be read as a table.
 
     Warns:
         ConversionWarning: If a text file is not valid UTF-8, was read without
@@ -105,6 +106,12 @@ def read_table(path: Path, nrows: int | None = None) -> pl.DataFrame:
         raise ReadError(
             f"Could not open {path.name!r}: {error.strerror or error}. Check that "
             "you have permission to read the file and that no other program locks it."
+        ) from error
+    except UnicodeDecodeError as error:
+        raise ReadError(
+            f"Could not read {path.name!r}: it is not valid {error.encoding.upper()} "
+            f"text ({error.reason}). The file may be damaged or cut off. Save it as "
+            "UTF-8 text and try again."
         ) from error
 
 

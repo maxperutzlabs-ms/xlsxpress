@@ -203,6 +203,12 @@ class TestReadTableEncoding:
 
         assert df["name"].to_list() == ["Müller\x81"]
 
+    def test_read_table_raises_read_error_for_truncated_utf16(self, tmp_path: Path) -> None:
+        path = _write_bytes(tmp_path, codecs.BOM_UTF16_LE + "a\tb\n1\t2\n".encode("utf-16-le") + b"x")
+
+        with pytest.raises(ReadError, match="not valid UTF-16-LE text"):
+            read_table(path)
+
     def test_read_table_raises_for_nul_bytes_without_byte_order_mark(self, tmp_path: Path) -> None:
         path = _write_bytes(tmp_path, "name\nvalue\n".encode("utf-16-le"))
 
