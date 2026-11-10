@@ -13,6 +13,7 @@ from pathlib import Path
 from xlsxpress.core import cleanup, excel, paths, readers, writers
 from xlsxpress.core.errors import ConversionWarning, OpenOutputError, WriteError
 from xlsxpress.core.options import ConversionOptions
+from xlsxpress.core.progress import Progress
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,7 +30,9 @@ class ConversionResult:
     warnings: tuple[str, ...] = ()
 
 
-def run_conversion(options: ConversionOptions) -> ConversionResult:
+def run_conversion(
+    options: ConversionOptions, progress: Progress | None = None
+) -> ConversionResult:
     """Convert a tabular file to an xlsx file according to `options`.
 
     The xlsx file is written next to the input file, or into the temp folder with
@@ -47,22 +50,32 @@ def run_conversion(options: ConversionOptions) -> ConversionResult:
     `ConversionWarning`s are collected and returned instead of being emitted, so
     every frontend can show them.
 
+    A frontend can pass a `Progress` to follow the conversion and to cancel it from
+    another thread. Reading the input cannot be interrupted, so a cancel during
+    reading takes effect when reading is done. Writing stops within a fraction of a
+    second.
+
     Args:
         options: The conversion options.
+        progress: Receives the stage of the conversion and can cancel it. Defaults
+            to None.
 
     Returns:
         The output path and the collected warnings.
 
     Raises:
+        errors.ConversionCancelled: If the conversion was cancelled through
+            `progress`. No xlsx file is left behind, also not in the work folder.
         errors.ConversionError: If the input cannot be read, does not fit into an
             Excel worksheet, or the xlsx file cannot be written (see its subclasses
             in `xlsxpress.core.errors`). No partial xlsx file is left behind.
         errors.OpenOutputError: If `options.open_after` is set and the written file
             could not be opened. The error holds the output path and the warnings.
     """
+    progress = progress or Progress()
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always", ConversionWarning)
-        output_path = _convert(options)
+        output_path = _convert(options, progress)
     messages: list[str] = []
     for warning in caught:
         if issubclass(warning.category, ConversionWarning):
@@ -73,6 +86,7 @@ def run_conversion(options: ConversionOptions) -> ConversionResult:
             )
     result = ConversionResult(output_path, tuple(messages))
     if options.open_after:
+        progress.report("opening")
         try:
             excel.open_in_default_app(output_path)
         except OSError as error:
@@ -87,9 +101,11 @@ def run_conversion(options: ConversionOptions) -> ConversionResult:
     return result
 
 
-def _convert(options: ConversionOptions) -> Path:
+def _convert(options: ConversionOptions, progress: Progress) -> Path:
     input_path = options.input_path.resolve()
+    progress.report("reading")
     df = readers.read_table(input_path, nrows=options.nrows)
+    progress.raise_if_cancelled()
 
     if options.to_temp:
         output_dir = paths.get_temp_dir()
@@ -112,9 +128,20 @@ def _convert(options: ConversionOptions) -> Path:
     work_file = Path(name)
     try:
         writers.write_excel(
-            df, work_file, format_header=options.format_header, tmpdir=work_dir
+            df,
+            work_file,
+            format_header=options.format_header,
+            tmpdir=work_dir,
+            progress=progress,
         )
-        return _publish(work_file, input_path, output_dir, options.to_temp)
+        progress.raise_if_cancelled()
+        output_path = _publish(work_file, input_path, output_dir, options.to_temp)
+        if progress.cancelled:
+            # Cancelled during the move or copy, which is not interrupted.
+            with contextlib.suppress(OSError):
+                output_path.unlink(missing_ok=True)
+            progress.raise_if_cancelled()
+        return output_path
     finally:
         with contextlib.suppress(OSError):
             work_file.unlink(missing_ok=True)

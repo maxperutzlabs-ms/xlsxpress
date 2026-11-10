@@ -25,6 +25,13 @@ class ExcelLimitError(ConversionError):
     """Raised when a table does not fit into an Excel worksheet."""
 
 
+class ConversionCancelled(Exception):
+    """Raised when the user cancelled a running conversion.
+
+    Nothing went wrong, so this is not a `ConversionError`. No file is left behind.
+    """
+
+
 class OpenOutputError(Exception):
     """Raised when the xlsx file was written but could not be opened.
 

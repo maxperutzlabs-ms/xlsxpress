@@ -15,6 +15,7 @@ import pytest
 from xlsxpress.core import excel, paths, writers
 from xlsxpress.core.cleanup import CleanupPolicy
 from xlsxpress.core.errors import (
+    ConversionCancelled,
     ConversionError,
     ExcelLimitError,
     OpenOutputError,
@@ -24,6 +25,7 @@ from xlsxpress.core.errors import (
 )
 from xlsxpress.core.options import ConversionOptions
 from xlsxpress.core.pipeline import run_conversion
+from xlsxpress.core.progress import Progress, Stage
 
 pytestmark = pytest.mark.integration
 
@@ -66,6 +68,20 @@ def tsv_file(tmp_path: Path) -> Path:
 
 def _xlsx_files(folder: Path) -> list[Path]:
     return sorted(folder.glob("*.xlsx"))
+
+
+class _RecordingProgress(Progress):
+    def __init__(self, cancel_at: Stage | None = None) -> None:
+        super().__init__()
+        self.stages: list[Stage] = []
+        self._cancel_at = cancel_at
+
+    def report(self, stage: Stage, fraction: float | None = None) -> None:
+        super().report(stage, fraction)
+        if stage not in self.stages:
+            self.stages.append(stage)
+        if stage == self._cancel_at:
+            self.cancel()
 
 
 class TestRunConversionValues:
@@ -216,6 +232,65 @@ class TestRunConversionWorkFolder:
 
         assert targets == [tsv_file.parent / "data.xlsx.part"]
         assert sorted(tsv_file.parent.iterdir()) == [tsv_file.parent / "data.tsv", result.output_path]
+
+
+class TestRunConversionProgress:
+    @pytest.fixture
+    def opened(self, monkeypatch: pytest.MonkeyPatch) -> list[Path]:
+        paths_opened: list[Path] = []
+        monkeypatch.setattr(excel, "open_in_default_app", paths_opened.append)
+        return paths_opened
+
+    def test_run_conversion_reports_its_stages_in_order(self, tsv_file: Path, opened: list[Path]) -> None:
+        progress = _RecordingProgress()
+
+        result = run_conversion(ConversionOptions(tsv_file, open_after=True), progress)
+
+        assert progress.stages == ["reading", "writing", "saving", "opening"]
+        assert opened == [result.output_path]
+
+    @pytest.mark.parametrize("to_temp", [False, True])
+    @pytest.mark.parametrize("stage", ["reading", "writing", "saving"])
+    def test_run_conversion_raises_conversion_cancelled_and_leaves_no_file_behind(
+        self, tsv_file: Path, opened: list[Path], to_temp: bool, stage: Stage
+    ) -> None:
+        output_dir = paths.get_temp_dir() if to_temp else tsv_file.parent
+        progress = _RecordingProgress(cancel_at=stage)
+
+        with pytest.raises(ConversionCancelled):
+            run_conversion(ConversionOptions(tsv_file, to_temp=to_temp, open_after=True), progress)
+
+        assert _xlsx_files(output_dir) == []
+        assert list(output_dir.glob("*.part")) == []
+        assert list(paths.get_work_dir().iterdir()) == []
+        assert opened == []
+
+    @pytest.mark.parametrize(("to_temp", "patched"), [(True, (os, "replace")), (False, (shutil, "copyfile"))])
+    def test_run_conversion_deletes_the_output_when_cancelled_while_moving_or_copying(
+        self,
+        tsv_file: Path,
+        opened: list[Path],
+        monkeypatch: pytest.MonkeyPatch,
+        to_temp: bool,
+        patched: tuple[Any, str],
+    ) -> None:
+        output_dir = paths.get_temp_dir() if to_temp else tsv_file.parent
+        progress = Progress()
+        original = getattr(*patched)
+
+        def cancel_and_continue(source: Path, target: Path) -> None:
+            progress.cancel()
+            original(source, target)
+
+        monkeypatch.setattr(*patched, cancel_and_continue)
+
+        with pytest.raises(ConversionCancelled):
+            run_conversion(ConversionOptions(tsv_file, to_temp=to_temp, open_after=True), progress)
+
+        assert _xlsx_files(output_dir) == []
+        assert list(output_dir.glob("*.part")) == []
+        assert list(paths.get_work_dir().iterdir()) == []
+        assert opened == []
 
 
 class TestRunConversionWarnings:

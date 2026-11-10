@@ -12,10 +12,24 @@ import polars as pl
 import pytest
 
 from xlsxpress.core import writers
-from xlsxpress.core.errors import ConversionWarning, ExcelLimitError, WriteError
+from xlsxpress.core.errors import ConversionCancelled, ConversionWarning, ExcelLimitError, WriteError
+from xlsxpress.core.progress import Progress, Stage
 from xlsxpress.core.writers import EXCEL_MAX_COLUMNS, EXCEL_MAX_ROWS, EXCEL_MAX_STRING_LENGTH, write_excel
 
 pytestmark = pytest.mark.unit
+
+
+class _RecordingProgress(Progress):
+    def __init__(self, cancel_at: tuple[Stage, float | None] | None = None) -> None:
+        super().__init__()
+        self.reports: list[tuple[Stage, float | None]] = []
+        self._cancel_at = cancel_at
+
+    def report(self, stage: Stage, fraction: float | None = None) -> None:
+        super().report(stage, fraction)
+        self.reports.append((stage, fraction))
+        if (stage, fraction) == self._cancel_at:
+            self.cancel()
 
 
 @pytest.fixture
@@ -372,3 +386,65 @@ class TestWriteExcelFile:
         assert set(used_dirs) == {str(tmpdir)}
         assert xlsx_reader(tmp_path / "output.xlsx").cells["A3"].value == "y"
         assert list(tmpdir.iterdir()) == []
+
+
+class TestWriteExcelProgress:
+    def test_write_excel_reports_the_written_part_of_the_rows_and_then_saving(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(writers, "_PROGRESS_CELLS", 4)
+        progress = _RecordingProgress()
+
+        write_excel(pl.DataFrame({"a": range(6), "b": range(6)}), tmp_path / "output.xlsx", progress=progress)
+
+        assert progress.reports == [
+            ("writing", 0.0),
+            ("writing", 2 / 6),
+            ("writing", 4 / 6),
+            ("writing", 1.0),
+            ("saving", None),
+        ]
+
+    @pytest.mark.parametrize("progress_cells", [1, 3, 10_000])
+    def test_write_excel_writes_every_row_whatever_the_progress_interval_is(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, xlsx_reader: Callable, progress_cells: int
+    ) -> None:
+        monkeypatch.setattr(writers, "_PROGRESS_CELLS", progress_cells)
+        output_path = tmp_path / "output.xlsx"
+
+        write_excel(pl.DataFrame({"a": range(7), "b": [f"t{i}" for i in range(7)]}), output_path, progress=Progress())
+
+        cells = xlsx_reader(output_path).cells
+        assert [cells[f"A{row}"].value for row in range(2, 9)] == [str(i) for i in range(7)]
+        assert [cells[f"B{row}"].value for row in range(2, 9)] == [f"t{i}" for i in range(7)]
+        assert len(cells) == 16
+
+    @pytest.mark.parametrize("cancel_at", [("writing", 0.0), ("writing", 0.5), ("writing", 1.0), ("saving", None)])
+    def test_write_excel_raises_conversion_cancelled_and_leaves_no_file_behind(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cancel_at: tuple[Stage, float | None]
+    ) -> None:
+        monkeypatch.setattr(writers, "_PROGRESS_CELLS", 2)
+        tmpdir = tmp_path / "work"
+        tmpdir.mkdir()
+        output_path = tmp_path / "output.xlsx"
+
+        with pytest.raises(ConversionCancelled):
+            write_excel(
+                pl.DataFrame({"a": range(8)}), output_path, tmpdir=tmpdir, progress=_RecordingProgress(cancel_at)
+            )
+
+        assert not output_path.exists()
+        assert list(tmpdir.iterdir()) == []
+
+    def test_write_excel_does_not_build_the_workbook_when_cancelled(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        closed: list[bool] = []
+        monkeypatch.setattr(writers.Workbook, "close", lambda _self: closed.append(True))
+
+        with pytest.raises(ConversionCancelled):
+            write_excel(
+                pl.DataFrame({"a": [1]}), tmp_path / "output.xlsx", progress=_RecordingProgress(("writing", 0.0))
+            )
+
+        assert closed == []

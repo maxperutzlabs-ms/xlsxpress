@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import datetime as dt
 import math
+import os
 import warnings
 from collections.abc import Callable
 from pathlib import Path
@@ -22,7 +23,13 @@ from xlsxwriter.utility import cell_autofit_width
 from xlsxwriter.workbook import Workbook
 from xlsxwriter.worksheet import Worksheet
 
-from xlsxpress.core.errors import ConversionWarning, ExcelLimitError, WriteError
+from xlsxpress.core.errors import (
+    ConversionCancelled,
+    ConversionWarning,
+    ExcelLimitError,
+    WriteError,
+)
+from xlsxpress.core.progress import Progress
 
 #: Maximum number of rows of an Excel worksheet, including the header row.
 EXCEL_MAX_ROWS = 1_048_576
@@ -54,6 +61,8 @@ _FIRST_EXCEL_DATE = dt.date(1900, 3, 1)
 _MAX_COL_PIXELS = 125
 _MIN_COL_PIXELS = 40
 _WIDTH_SAMPLE_ROWS = 1_000
+#: Progress is reported, and a cancel noticed, after about this many cells.
+_PROGRESS_CELLS = 10_000
 
 _CellWriter = Callable[[int, int, Any], None]
 
@@ -63,6 +72,7 @@ def write_excel(
     output_path: Path,
     format_header: bool = True,
     tmpdir: Path | None = None,
+    progress: Progress | None = None,
 ) -> Path:
     """Write a DataFrame to an xlsx file and return the output path.
 
@@ -91,11 +101,15 @@ def write_excel(
         tmpdir: Folder for xlsxwriter's temporary files, which hold the uncompressed
             rows until the workbook is complete. If None (default), uses the
             system temp folder.
+        progress: Receives the progress of writing and can cancel it. Defaults to
+            None.
 
     Returns:
         The output path.
 
     Raises:
+        ConversionCancelled: If the conversion was cancelled through `progress`.
+            No file is left behind.
         ExcelLimitError: If the table has more rows or columns than an Excel
             worksheet holds. No file is written in that case.
         WriteError: If the file cannot be written, for example because the folder
@@ -110,14 +124,20 @@ def write_excel(
     workbook_options: dict[str, bool | str] = {**_WORKBOOK_OPTIONS}
     if tmpdir is not None:
         workbook_options["tmpdir"] = str(tmpdir)
+    progress = progress or Progress()
     workbook = xlsxwriter.Workbook(str(output_path), workbook_options)
     try:
         sheet_writer = _SheetWriter(workbook, workbook.add_worksheet())
-        sheet_writer.write(df, format_header)
+        sheet_writer.write(df, format_header, progress)
+        progress.report("saving")
+        progress.raise_if_cancelled()
         workbook.close()
     except BaseException as error:
-        with contextlib.suppress(Exception):
-            workbook.close()
+        if isinstance(error, ConversionCancelled):
+            _discard_row_data(workbook)
+        else:
+            with contextlib.suppress(Exception):
+                workbook.close()
         with contextlib.suppress(OSError):
             output_path.unlink(missing_ok=True)
         if isinstance(error, OSError | XlsxFileError):
@@ -140,12 +160,17 @@ class _SheetWriter:
         )
         self._truncated: dict[int, int] = {}
 
-    def write(self, df: pl.DataFrame, format_header: bool) -> None:
+    def write(self, df: pl.DataFrame, format_header: bool, progress: Progress) -> None:
         """Write header, column widths, header formatting and all rows."""
+        progress.report("writing", 0.0)
         self._set_column_widths(df)
         self._write_header(df, format_header)
         cell_writers = [self._cell_writer(df[name]) for name in df.columns]
+        check_interval = max(1, _PROGRESS_CELLS // max(1, df.width))
         for row_index, row in enumerate(df.iter_rows(), start=1):
+            if row_index % check_interval == 0:
+                progress.raise_if_cancelled()
+                progress.report("writing", row_index / df.height)
             for col_index, value in enumerate(row):
                 if value is not None:
                     cell_writers[col_index](row_index, col_index, value)
@@ -309,6 +334,19 @@ def _prepare_columns(df: pl.DataFrame) -> pl.DataFrame:
         elif isinstance(dtype, pl.Datetime) and dtype.time_zone is not None:
             conversions.append(pl.col(name).dt.to_string(_ISO_DATETIME_WITH_OFFSET))
     return df.with_columns(conversions) if conversions else df
+
+
+def _discard_row_data(workbook: Workbook) -> None:
+    """Delete the temporary files that hold the rows of an unfinished workbook.
+
+    `workbook.close()` deletes them too, but it first builds the whole xlsx file,
+    which takes seconds for a large table. This uses xlsxwriter internals; if they
+    change, the files stay in `tmpdir`.
+    """
+    for worksheet in workbook.worksheets():
+        with contextlib.suppress(Exception):
+            worksheet._opt_close()
+            os.unlink(str(worksheet.row_data_filename))
 
 
 def _describe_write_error(output_path: Path, error: Exception) -> str:
