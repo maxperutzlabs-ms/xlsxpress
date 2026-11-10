@@ -73,8 +73,8 @@ def clean_temp_dir(temp_dir: Path, policy: CleanupPolicy) -> int:
 def clean_work_dir(work_dir: Path) -> int:
     """Delete files that interrupted conversions left in the work folder.
 
-    A conversion deletes its own work files when it ends, even when it fails. Only a
-    process that was killed, for example by closing the dialog during a conversion,
+    A conversion deletes its own work files when it ends, even when it fails or is
+    cancelled. Only a process that was killed, for example in the Task Manager,
     leaves files behind. Every file directly in the folder that was last modified
     more than `WORK_FILE_MAX_AGE_DAYS` ago is deleted. Younger files may belong to a
     conversion that is still running and are kept. Subfolders and locked files are

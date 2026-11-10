@@ -8,6 +8,7 @@
 - Warnings for values or names that XlsxPress changed or may have read incorrectly: text longer than Excel's limit of 32,767 characters, repeated column names, files that are not valid UTF-8, and files with irregular quotes. The command line, the context menu and the conversion dialog show these warnings.
 - Support for text files in UTF-16 and UTF-32 with a byte order mark, and in Windows-1252 or Latin-1.
 - Support for Python 3.12 and 3.13.
+- A progress window for conversions that take longer than a moment, from **Open in Excel (XlsxPress)** and from the conversion dialog. It shows the elapsed time and how much of the workbook is written. Close the window to cancel the conversion.
 - The conversion dialog shows where XlsxPress saved the workbook, with a **Show in folder** button and the warnings of the conversion.
 
 ### Changed

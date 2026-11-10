@@ -50,6 +50,8 @@ Right-click a `.csv`, `.tsv`, `.txt` or `.parquet` file and select one of these 
 - **Open in Excel (XlsxPress)** converts the file with your default options and opens the workbook in Excel.
 - **Open conversion dialog (XlsxPress)** shows a dialog in which you select the options for this conversion.
 
+If a conversion takes longer than a moment, a small window shows its progress. Large files can take a few minutes. To cancel the conversion, close this window.
+
 On Windows 11, the entries are in the classic context menu. Right-click the file and select **Show more options** to see them.
 
 > [!TIP]
