@@ -192,7 +192,7 @@ uv run ruff format --check .
 uv run pyrefly check
 ```
 
-The conversion decisions and the development plan are in [docs/development-plan.md](https://github.com/maxperutzlabs-ms/xlsxpress/blob/main/docs/development-plan.md).
+The design decisions are in [docs/design.md](https://github.com/maxperutzlabs-ms/xlsxpress/blob/main/docs/design.md).
 
 ## Feedback
 

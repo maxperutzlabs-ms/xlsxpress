@@ -1,7 +1,7 @@
 """Writing DataFrames to formatted xlsx files with xlsxwriter.
 
 Each polars data type is written in one defined way, following the conversion
-decisions in `docs/development-plan.md`. Rows are streamed to disk (xlsxwriter's
+decisions in `docs/design.md`. Rows are streamed to disk (xlsxwriter's
 `constant_memory` mode), so memory use does not grow with the size of the table.
 """
 
