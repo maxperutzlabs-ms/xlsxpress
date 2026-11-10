@@ -6,9 +6,10 @@ polls with `after()`. The decisions (options, saved defaults, which outcome to s
 live in `dialog_logic`, where they are tested. Colours, fonts and sizes are in
 `theme`, the repeated widgets in `widgets`.
 
-Closing the window during a conversion ends the process and the conversion with it.
-No unfinished file is left under the output name, because the pipeline writes to
-its work folder first.
+A conversion that takes long shows a `ProgressPopup`. Closing the popup cancels the
+conversion and returns to the dialog. Closing the dialog during a conversion
+cancels it too: the dialog disappears at once, and the process ends when the
+conversion has stopped and cleaned up.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from __future__ import annotations
 import logging
 import queue
 import threading
+import time
 from pathlib import Path
 from typing import Literal
 
@@ -36,6 +38,7 @@ from xlsxpress.app.gui.dialog_logic import (
     parse_nrows,
     save_location_help,
 )
+from xlsxpress.app.gui.progress_window import SHOW_DELAY_MS, ProgressPopup
 from xlsxpress.app.gui.theme import Fonts
 from xlsxpress.app.gui.widgets import (
     RoundBadge,
@@ -52,8 +55,10 @@ from xlsxpress.app.gui.widgets import (
 )
 from xlsxpress.config import AppConfig, DialogDefaults, write_config
 from xlsxpress.core import excel, paths
+from xlsxpress.core.errors import ConversionCancelled
 from xlsxpress.core.options import ConversionOptions
 from xlsxpress.core.pipeline import run_conversion
+from xlsxpress.core.progress import Progress
 
 logger = logging.getLogger(__name__)
 
@@ -101,9 +106,14 @@ class _OptionsDialog(ctk.CTk):
         super().__init__(fg_color=theme.BG)
         self._filename = filename
         self._config = app_config
-        self._outcomes: queue.Queue[Outcome] = queue.Queue()
+        #: Outcomes of the worker thread; None for a cancelled conversion.
+        self._outcomes: queue.Queue[Outcome | None] = queue.Queue()
         self._fonts = Fonts()
         self._busy = False
+        self._progress = Progress()
+        self._popup: ProgressPopup | None = None
+        #: True once the dialog was closed during a conversion.
+        self._closing = False
         self._converting_to_temp = True
         #: Name of the last workbook written next to the original.
         self._output_name: str | None = None
@@ -139,7 +149,8 @@ class _OptionsDialog(ctk.CTk):
         # The main button converts, or closes the dialog after a conversion.
         self.bind("<Return>", lambda _event: self._submit_button.invoke())
         self.bind("<KP_Enter>", lambda _event: self._submit_button.invoke())
-        self.bind("<Escape>", lambda _event: self.destroy())
+        self.bind("<Escape>", lambda _event: self._close())
+        self.protocol("WM_DELETE_WINDOW", self._close)
 
         self._set_form(form_from_defaults(app_config.dialog))
         self._center()
@@ -460,15 +471,23 @@ class _OptionsDialog(ctk.CTk):
         self._submit_button.configure(
             state="disabled", text="Converting…", fg_color=theme.RED_HOVER
         )
+        progress = Progress()
+        started = time.monotonic()
+        self._progress = progress
         threading.Thread(
-            target=self._convert_in_background, args=(options,), daemon=True
+            target=self._convert_in_background, args=(options, progress), daemon=True
         ).start()
+        self.after(SHOW_DELAY_MS, lambda: self._show_progress(progress, started))
         self.after(_POLL_MS, self._poll_outcome)
 
-    def _convert_in_background(self, options: ConversionOptions) -> None:
+    def _convert_in_background(
+        self, options: ConversionOptions, progress: Progress
+    ) -> None:
         # Runs in the worker thread: no widget calls here.
         try:
-            result = run_conversion(options)
+            result = run_conversion(options, progress)
+        except ConversionCancelled:
+            self._outcomes.put(None)
         except Exception as error:  # noqa: BLE001 - every error is shown to the user
             logger.exception("Conversion of %s failed", options.input_path)
             self._outcomes.put(outcome_of_error(error, config.get_log_path()))
@@ -479,18 +498,47 @@ class _OptionsDialog(ctk.CTk):
         try:
             outcome = self._outcomes.get_nowait()
         except queue.Empty:
+            if self._popup is not None:
+                self._popup.refresh()
             self.after(_POLL_MS, self._poll_outcome)
             return
         self._show_outcome(outcome)
 
-    def _show_outcome(self, outcome: Outcome) -> None:
-        if outcome.close_automatically:
+    def _show_progress(self, progress: Progress, started: float) -> None:
+        # Only if this conversion is still running and the dialog is still shown.
+        if not self._busy or progress is not self._progress or progress.cancelled:
+            return
+        self._popup = ProgressPopup(
+            self,
+            self._fonts,
+            self._filename.name,
+            progress,
+            started,
+            on_cancel=self._cancel_conversion,
+        )
+
+    def _cancel_conversion(self) -> None:
+        # The conversion stops at its next check and then reports its outcome.
+        self._progress.cancel()
+        self._close_popup()
+        self._submit_button.configure(text="Cancelling…")
+
+    def _close_popup(self) -> None:
+        if self._popup is not None:
+            self._popup.destroy()
+            self._popup = None
+
+    def _show_outcome(self, outcome: Outcome | None) -> None:
+        self._close_popup()
+        if self._closing or (outcome is not None and outcome.close_automatically):
             self.destroy()
             return
         self._busy = False
         self._submit_button.configure(
             state="normal", text="Convert", fg_color=theme.RED
         )
+        if outcome is None:
+            return
         if outcome.output_path is not None:
             if not self._converting_to_temp:
                 self._output_name = outcome.output_path.name
@@ -606,6 +654,16 @@ class _OptionsDialog(ctk.CTk):
             paths.get_temp_dir(),
             config.get_config_path(),
         )
+
+    def _close(self) -> None:
+        if not self._busy:
+            self.destroy()
+            return
+        # The dialog disappears at once; it is destroyed when the conversion has
+        # stopped and cleaned up.
+        self._closing = True
+        self._cancel_conversion()
+        self.withdraw()
 
     def _center(self) -> None:
         self.update_idletasks()
