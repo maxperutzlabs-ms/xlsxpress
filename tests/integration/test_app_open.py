@@ -8,6 +8,9 @@ import pytest
 from xlsxpress.app import main as app_main
 from xlsxpress.config import AppConfig, CleanupPolicy, DialogDefaults, write_config
 from xlsxpress.core import excel, paths
+from xlsxpress.core.options import ConversionOptions
+from xlsxpress.core.pipeline import run_conversion
+from xlsxpress.core.progress import Progress
 
 pytestmark = pytest.mark.integration
 
@@ -26,6 +29,11 @@ def _fail_on_error_box(message: str) -> None:
 def no_logging_or_error_boxes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(app_main, "_setup_logging", lambda: None)
     monkeypatch.setattr(app_main, "_show_error_box", _fail_on_error_box)
+
+
+@pytest.fixture(autouse=True)
+def no_progress_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(app_main, "_convert_with_progress", run_conversion)
 
 
 @pytest.fixture(autouse=True)
@@ -94,6 +102,26 @@ class TestMainOpen:
         assert exit_code == 1
         assert len(messages) == 1
         assert "more tab-separated fields than the header row" in messages[0]
+
+    def test_open_returns_without_a_message_or_a_file_when_the_conversion_is_cancelled(
+        self, tmp_path: Path, opened: list[Path], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        input_path = tmp_path / "data.tsv"
+        input_path.write_text("a\ta\n1\t2\n", encoding="utf-8")
+
+        def convert_and_cancel(options: ConversionOptions) -> None:
+            progress = Progress()
+            progress.cancel()
+            run_conversion(options, progress)
+
+        monkeypatch.setattr(app_main, "_convert_with_progress", convert_and_cancel)
+        monkeypatch.setattr(app_main, "_show_warning_box", _fail_on_error_box)
+
+        exit_code = app_main.main(["open", str(input_path)])
+
+        assert exit_code == 0
+        assert list(paths.get_temp_dir().glob("*.xlsx")) == []
+        assert opened == []
 
     def test_open_shows_conversion_warnings_in_a_warning_box(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

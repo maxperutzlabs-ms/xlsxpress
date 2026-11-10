@@ -15,9 +15,13 @@ import logging
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from xlsxpress import config
+
+if TYPE_CHECKING:
+    from xlsxpress.core.options import ConversionOptions
+    from xlsxpress.core.pipeline import ConversionResult
 
 logger = logging.getLogger("xlsxpress.app")
 
@@ -51,12 +55,18 @@ def main(argv: Sequence[str] | None = None) -> int:
 def _run_open(filename: Path) -> int:
     """Context menu 'Open in Excel': convert with the saved defaults and open.
 
+    A progress window appears if the conversion takes long. Closing it cancels the
+    conversion without a message.
+
     The file is always opened, whatever the saved `open_after` option says: that
     option only sets the dialog's default.
     """
-    from xlsxpress.core.errors import ConversionError, OpenOutputError
+    from xlsxpress.core.errors import (
+        ConversionCancelled,
+        ConversionError,
+        OpenOutputError,
+    )
     from xlsxpress.core.options import ConversionOptions
-    from xlsxpress.core.pipeline import run_conversion
 
     app_config = config.load_config()
     options = ConversionOptions(
@@ -68,7 +78,9 @@ def _run_open(filename: Path) -> int:
         cleanup_policy=app_config.cleanup,
     )
     try:
-        result = run_conversion(options)
+        result = _convert_with_progress(options)
+    except ConversionCancelled:
+        return 0
     except ConversionError as error:
         logger.exception("Conversion of %s failed", filename)
         _show_error_box(str(error))
@@ -82,6 +94,12 @@ def _run_open(filename: Path) -> int:
     if result.warnings:
         _show_warning_box("\n\n".join(result.warnings))
     return 0
+
+
+def _convert_with_progress(options: ConversionOptions) -> ConversionResult:
+    from xlsxpress.app.gui.progress_window import convert_with_progress
+
+    return convert_with_progress(options)
 
 
 def _run_dialog(filename: Path) -> int:

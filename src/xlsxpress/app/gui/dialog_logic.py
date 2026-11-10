@@ -18,12 +18,20 @@ from xlsxpress.core.cleanup import CleanupPolicy
 from xlsxpress.core.errors import ConversionError, OpenOutputError
 from xlsxpress.core.options import ConversionOptions
 from xlsxpress.core.pipeline import ConversionResult
+from xlsxpress.core.progress import Stage
 
 #: Label of the context menu entry that converts with the saved defaults.
 OPEN_ENTRY_LABEL = next(entry.label for entry in ENTRIES if entry.app_command == "open")
 
 #: Marks the part of a path that was left out.
 ELLIPSIS = "\u2026"
+
+_STAGE_TEXTS: dict[Stage, str] = {
+    "reading": f"Reading file{ELLIPSIS}",
+    "writing": f"Writing workbook{ELLIPSIS}",
+    "saving": f"Saving workbook{ELLIPSIS}",
+    "opening": f"Opening in Excel{ELLIPSIS}",
+}
 
 #: Style of the dialog's result banner.
 BannerKind = Literal["success", "warning", "error"]
@@ -288,6 +296,28 @@ def about_sections(cleanup_policy: CleanupPolicy) -> tuple[tuple[str, str], ...]
             f"beyond {cleanup_policy.max_files} files, even if edited.",
         ),
     )
+
+
+def progress_status(stage: Stage, fraction: float | None) -> str:
+    """Return the status line of the progress window.
+
+    Args:
+        stage: The current step of the conversion.
+        fraction: The completed part of the stage, from 0 to 1, or None.
+
+    Returns:
+        The status text, with a percentage if `fraction` is known.
+    """
+    text = _STAGE_TEXTS[stage]
+    if fraction is None:
+        return text
+    return f"{text} {int(min(max(fraction, 0.0), 1.0) * 100)}%"
+
+
+def format_elapsed(seconds: float) -> str:
+    """Return a duration as minutes and seconds, for example `1:07`."""
+    minutes, rest = divmod(int(seconds), 60)
+    return f"{minutes}:{rest:02d}"
 
 
 def truncate_middle(text: str, max_chars: int) -> str:

@@ -12,9 +12,11 @@ from xlsxpress.app.gui.dialog_logic import (
     build_options,
     defaults_from_form,
     form_from_defaults,
+    format_elapsed,
     outcome_of_error,
     outcome_of_result,
     parse_nrows,
+    progress_status,
     save_location_help,
     truncate_middle,
     truncate_start,
@@ -23,6 +25,7 @@ from xlsxpress.config import DialogDefaults
 from xlsxpress.core.cleanup import CleanupPolicy
 from xlsxpress.core.errors import OpenOutputError, ReadError
 from xlsxpress.core.pipeline import ConversionResult
+from xlsxpress.core.progress import Stage
 
 pytestmark = pytest.mark.unit
 
@@ -258,3 +261,31 @@ class TestTruncateStart:
     def test_truncate_start_raises_for_a_max_chars_below_one(self) -> None:
         with pytest.raises(ValueError, match="Invalid max_chars 0"):
             truncate_start("abc", 0)
+
+
+class TestProgressStatus:
+    @pytest.mark.parametrize(
+        ("stage", "expected"),
+        [
+            ("reading", f"Reading file{ELLIPSIS}"),
+            ("writing", f"Writing workbook{ELLIPSIS}"),
+            ("saving", f"Saving workbook{ELLIPSIS}"),
+            ("opening", f"Opening in Excel{ELLIPSIS}"),
+        ],
+    )
+    def test_progress_status_names_the_stage_when_the_fraction_is_unknown(self, stage: Stage, expected: str) -> None:
+        assert progress_status(stage, None) == expected
+
+    @pytest.mark.parametrize(
+        ("fraction", "percent"), [(0.0, "0%"), (0.456, "45%"), (0.999, "99%"), (1.0, "100%"), (1.2, "100%")]
+    )
+    def test_progress_status_adds_the_percentage_rounded_down(self, fraction: float, percent: str) -> None:
+        assert progress_status("writing", fraction) == f"Writing workbook{ELLIPSIS} {percent}"
+
+
+class TestFormatElapsed:
+    @pytest.mark.parametrize(
+        ("seconds", "expected"), [(0, "0:00"), (7.9, "0:07"), (59.99, "0:59"), (60, "1:00"), (754, "12:34")]
+    )
+    def test_format_elapsed_shows_minutes_and_two_digit_seconds(self, seconds: float, expected: str) -> None:
+        assert format_elapsed(seconds) == expected
