@@ -197,7 +197,25 @@ class TestRunConversionWorkFolder:
             run_conversion(ConversionOptions(tsv_file, to_temp=to_temp))
 
         assert _xlsx_files(output_dir) == []
+        assert list(output_dir.glob("*.part")) == []
         assert list(paths.get_work_dir().iterdir()) == []
+
+    def test_run_conversion_copies_to_a_part_file_that_replaces_the_output_name(
+        self, tsv_file: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        original_copyfile = shutil.copyfile
+        targets: list[Path] = []
+
+        def copyfile(source: Path, target: Path) -> Path:
+            targets.append(Path(target))
+            return original_copyfile(source, target)
+
+        monkeypatch.setattr(shutil, "copyfile", copyfile)
+
+        result = run_conversion(ConversionOptions(tsv_file))
+
+        assert targets == [tsv_file.parent / "data.xlsx.part"]
+        assert sorted(tsv_file.parent.iterdir()) == [tsv_file.parent / "data.tsv", result.output_path]
 
 
 class TestRunConversionWarnings:

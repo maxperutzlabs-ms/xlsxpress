@@ -39,7 +39,10 @@ def run_conversion(options: ConversionOptions) -> ConversionResult:
     The workbook is first written to the work folder (`paths.get_work_dir`) and
     moved (temp folder) or copied (next to the input) to its output path only when
     complete, so a file under the output name is never unfinished, even if the
-    process is killed during the conversion.
+    process is killed during the conversion. The output name is reserved with an
+    empty file first, and a copy goes to a `.part` file that replaces it when
+    complete. A process killed during the copy leaves the empty file and the
+    `.part` file behind.
 
     `ConversionWarning`s are collected and returned instead of being emitted, so
     every frontend can show them.
@@ -132,15 +135,21 @@ def _publish(
     # same permissions, so the file is moved: a copy would be a second new file,
     # which the virus scanner checks again when Excel opens it (about 0.6 s for a
     # 2.5 MB workbook). Elsewhere the file is copied, so it gets the permissions of
-    # the output folder and also works on another drive or a network share.
+    # the output folder and also works on another drive or a network share. The
+    # copy goes to a `.part` file next to the reserved one and replaces it only
+    # when complete, so a killed copy never leaves a truncated workbook. The
+    # reserved name is unique, so its `.part` name is too.
+    part_file = output_path.with_name(f"{output_path.name}.part")
     try:
         if to_temp:
             os.replace(work_file, output_path)
         else:
-            shutil.copyfile(work_file, output_path)
+            shutil.copyfile(work_file, part_file)
+            os.replace(part_file, output_path)
     except BaseException as error:
-        with contextlib.suppress(OSError):
-            output_path.unlink(missing_ok=True)
+        for path in (part_file, output_path):
+            with contextlib.suppress(OSError):
+                path.unlink(missing_ok=True)
         if isinstance(error, OSError):
             raise WriteError(
                 f"Could not write '{output_path}': {error.strerror or error}. Check "
