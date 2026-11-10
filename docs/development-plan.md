@@ -85,6 +85,7 @@ Bugs in code that will be removed are marked *(removed with PyApp)* and won't be
 - [x] Separator detection counts separators inside quoted fields and silently picks the wrong separator, e.g. `id;"protein,description,info"` becomes three columns
 - [x] A process killed while copying the workbook next to the input leaves a truncated `.xlsx` under the output name
 - [x] A cut-off UTF-16 file fails with an uncaught `UnicodeDecodeError` instead of a `ReadError`
+- [x] The context menu app dies silently if the log file can't be set up
 
 ## Implementation order
 

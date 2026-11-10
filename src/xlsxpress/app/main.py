@@ -37,8 +37,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         subparsers.add_parser(name).add_argument("filename", type=Path)
     args = parser.parse_args(argv)
 
-    _setup_logging()
     try:
+        _setup_logging()
         if args.command == "open":
             return _run_open(args.filename)
         return _run_dialog(args.filename)

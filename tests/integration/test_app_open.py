@@ -66,6 +66,21 @@ class TestMainOpen:
         assert len(outputs) == 1
         assert _count_data_rows(outputs[0]) == expected_rows
 
+    def test_main_shows_an_error_box_when_logging_cannot_be_set_up(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fail() -> None:
+            raise PermissionError(13, "Permission denied")
+
+        messages: list[str] = []
+        monkeypatch.setattr(app_main, "_setup_logging", fail)
+        monkeypatch.setattr(app_main, "_show_error_box", messages.append)
+
+        exit_code = app_main.main(["open", str(tmp_path / "data.tsv")])
+
+        assert exit_code == 1
+        assert len(messages) == 1
+
     def test_open_shows_the_conversion_error_message_in_an_error_box(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
