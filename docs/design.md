@@ -48,6 +48,7 @@ XlsxPress converts text and Parquet files to Excel workbooks without changing th
 - Optional decimal-comma parsing (`1,5`) for German-locale exports. Not automatic: `1,234` means 1.234 in German and 1234 in English.
 - Perseus matrices: their `#!{Type}` annotation rows below the header make every column text.
 - An option to write integers over 15 digits as text.
+- A Rust-based Excel writer to make large conversions several times faster. See `docs/rust-xlsxwriter-transition.md`.
 
 ## Testing approach
 
