@@ -126,6 +126,7 @@ XlsxPress expects text files in UTF-8, or in UTF-16 or UTF-32 with a byte order 
 ## Limitations
 
 - **Long numbers:** Excel stores only 15 significant digits. A longer integer, such as a 16-digit ID, ends in zeros in Excel.
+- **Extreme numbers:** In text files, numbers beyond the range of a double become `inf` (`1e+400`) or `0` (`1e-400`) without a warning.
 - **Excel size limits:** A worksheet holds at most 1,048,575 data rows and 16,384 columns. XlsxPress stops with an error for a larger table, so use the preview option to convert only the first rows. Excel also limits a cell to 32,767 characters, so XlsxPress shortens longer text and shows a warning.
 - **Dates in Parquet files:** Excel stores times only to the millisecond. Dates before 1 March 1900 become text in ISO 8601 format, because Excel shows these dates incorrectly. Datetimes with a time zone also become text, such as `2024-01-02T10:00:00+01:00`, because Excel has no time zones.
 - **Decimal commas:** Values such as `1,5` stay text, because `1,234` means 1.234 in German and 1234 in English.
