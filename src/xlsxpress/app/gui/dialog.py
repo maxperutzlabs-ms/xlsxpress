@@ -472,12 +472,22 @@ class _OptionsDialog(ctk.CTk):
             state="disabled", text="Converting…", fg_color=theme.RED_HOVER
         )
         progress = Progress()
-        started = time.monotonic()
         self._progress = progress
+        # Built before the conversion starts, because building it while the worker
+        # thread runs is slow. Shown only if the conversion takes long.
+        popup = ProgressPopup(
+            self,
+            self._fonts,
+            self._filename.name,
+            progress,
+            time.monotonic(),
+            on_cancel=self._cancel_conversion,
+        )
+        self._popup = popup
         threading.Thread(
             target=self._convert_in_background, args=(options, progress), daemon=True
         ).start()
-        self.after(SHOW_DELAY_MS, lambda: self._show_progress(progress, started))
+        self.after(SHOW_DELAY_MS, lambda: self._show_progress(popup))
         self.after(_POLL_MS, self._poll_outcome)
 
     def _convert_in_background(
@@ -504,18 +514,10 @@ class _OptionsDialog(ctk.CTk):
             return
         self._show_outcome(outcome)
 
-    def _show_progress(self, progress: Progress, started: float) -> None:
-        # Only if this conversion is still running and the dialog is still shown.
-        if not self._busy or progress is not self._progress or progress.cancelled:
-            return
-        self._popup = ProgressPopup(
-            self,
-            self._fonts,
-            self._filename.name,
-            progress,
-            started,
-            on_cancel=self._cancel_conversion,
-        )
+    def _show_progress(self, popup: ProgressPopup) -> None:
+        # Only if its conversion is still running: otherwise it was closed already.
+        if popup is self._popup:
+            popup.show()
 
     def _cancel_conversion(self) -> None:
         # The conversion stops at its next check and then reports its outcome.

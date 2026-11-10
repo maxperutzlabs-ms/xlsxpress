@@ -152,7 +152,11 @@ class ProgressPopup(ctk.CTkToplevel):
         started: float,
         on_cancel: Callable[[], None],
     ) -> None:
-        """Create and show the window over `parent`.
+        """Create the window over `parent`, hidden until `show` is called.
+
+        Create it before the conversion starts: while the conversion runs, building
+        the widgets takes more than a second, because the main thread has to wait
+        for the worker thread at every widget call.
 
         Args:
             parent: The conversion dialog.
@@ -163,6 +167,7 @@ class ProgressPopup(ctk.CTkToplevel):
             on_cancel: Called when the user closes the window.
         """
         super().__init__(parent, fg_color=theme.BG)
+        self.withdraw()
         self.title("XlsxPress")
         self.resizable(False, False)
         self.transient(parent)
@@ -175,6 +180,10 @@ class ProgressPopup(ctk.CTkToplevel):
         x = parent.winfo_rootx() + (parent.winfo_width() - self.winfo_reqwidth()) // 2
         y = parent.winfo_rooty() + (parent.winfo_height() - self.winfo_reqheight()) // 2
         self.wm_geometry(f"+{max(x, 0)}+{max(y, 0)}")
+
+    def show(self) -> None:
+        """Show the window and make it modal."""
+        self.deiconify()
         # customtkinter may show a new toplevel behind its parent; raise it later.
         self.after(10, self._raise)
 
