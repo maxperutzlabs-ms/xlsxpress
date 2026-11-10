@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.4.0] - Unreleased
+## [0.4.0] - 2026-11-10
 
 ### Added
 - `xlsxpress context-menu register`, `unregister` and `status` commands, which add, remove and check the File Explorer context menu entries on Windows.
