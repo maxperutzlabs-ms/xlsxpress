@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import codecs
 import csv
+import re
 import warnings
 from pathlib import Path
 
@@ -35,6 +36,9 @@ _FLOAT_PATTERN = f"^(?:{_INTEGER}|{_DECIMAL}|{_INTEGER_WITH_EXPONENT})$"
 _INFINITY_PATTERN = r"(?i)^-?(?:inf|infinity)$"
 
 _SEPARATOR_NAMES = {"\t": "tab", ",": "comma", ";": "semicolon"}
+#: A fully quoted field, from a line start or separator to a separator or line end.
+#: A quote inside a field, like in `5" cable`, doesn't start one.
+_QUOTED_FIELD = re.compile(r'(?:^|(?<=[\t,;]))"(?:[^"]|"")*"(?=[\t,;]|$)')
 _ENCODING_NAMES = {"cp1252": "Windows-1252 (Western European)", "latin-1": "Latin-1"}
 _SNIFF_BYTES = 64 * 1024
 _SNIFF_LINES = 20
@@ -267,6 +271,7 @@ def _is_valid_text(path: Path, encoding: str) -> bool:
 def _sniff_separator(path: Path, encoding: str) -> str:
     """Guess the separator of a text file from its first lines.
 
+    Separators inside quoted fields, like the commas in `id;"a,b,c"`, don't count.
     Prefers separators that occur equally often on the header line and the
     following lines, so a header name like `Protein names, short` in a
     tab-separated file doesn't win. Among those, or among all candidates if none is
@@ -280,7 +285,7 @@ def _sniff_separator(path: Path, encoding: str) -> str:
     ]
     if len(head) == _SNIFF_BYTES and len(lines) > 1:
         lines.pop()  # The last line may be cut off by the sample size.
-    sample = lines[: _SNIFF_LINES + 1]
+    sample = [_QUOTED_FIELD.sub("", line) for line in lines[: _SNIFF_LINES + 1]]
     if not sample:
         return "\t"
     header_counts = {

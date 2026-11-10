@@ -228,6 +228,21 @@ class TestReadTableSeparator:
 
         assert read_table(path).rows() == [(1, 2)]
 
+    @pytest.mark.parametrize(
+        "content",
+        [
+            'id;"protein,description,info"\n1;"P1,albumin,serum"\n2;"P2,keratin,skin"\n',
+            '"id;alias;note",value\n"a;b;c",1\n"d;e;f",2\n',
+        ],
+    )
+    def test_read_table_ignores_separators_inside_quoted_fields_of_the_header(
+        self, tmp_path: Path, content: str, no_warnings: None
+    ) -> None:
+        path = tmp_path / "data.csv"
+        path.write_text(content, encoding="utf-8")
+
+        assert read_table(path).width == 2
+
     def test_read_table_prefers_the_consistent_separator_over_commas_in_the_header(self, tmp_path: Path) -> None:
         path = tmp_path / "data.txt"
         path.write_text("Protein names, short, long\tGene\nAlbumin\tALB\nKeratin\tKRT1\n", encoding="utf-8")

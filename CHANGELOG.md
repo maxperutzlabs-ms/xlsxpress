@@ -14,7 +14,7 @@
 - Install with `uv tool install xlsxpress` or `pip install xlsxpress`. The desktop parts are included, so the `gui` extra is no longer necessary.
 - A column of a text file becomes a number column only if every value in it is a plain number. Otherwise the whole column stays text, so leading zeros (`007`), signs (`+5`), decimal commas, dates and IDs such as `2310009E13` stay exactly as in the file.
 - Missing values such as `NA`, `NaN` and `#N/A` become empty cells in number columns.
-- The separator of `.csv` and `.txt` files is detected from the first lines and prefers a separator that occurs equally often on every line.
+- The separator of `.csv` and `.txt` files is detected from the first lines and prefers a separator that occurs equally often on every line. Separators inside quoted fields, such as the commas in `id;"protein,description"`, are ignored.
 - Dates and datetimes from Parquet files become Excel dates. Datetimes with a time zone, times, durations, lists and binary values become text.
 - XlsxPress writes the workbook row by row, so large files need less memory.
 - Column widths are estimated from the header and the first 1,000 rows, between 40 and 125 pixels. Date columns are always wide enough for the full date.
