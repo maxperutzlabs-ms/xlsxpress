@@ -61,7 +61,9 @@ def default_config() -> AppConfig:
 def load_config() -> AppConfig:
     """Load the config file, using defaults for anything missing or invalid.
 
-    Never raises, because a broken config file must not break conversions.
+    Never raises, because a broken config file must not break conversions. A
+    section that isn't a table, a value of the wrong type, a negative number or
+    an `nrows` of 0 is ignored.
 
     Returns:
         The loaded config.
@@ -73,8 +75,11 @@ def load_config() -> AppConfig:
     except (OSError, tomllib.TOMLDecodeError):
         return config
     for section, target in (("dialog", config.dialog), ("cleanup", config.cleanup)):
-        for key, value in data.get(section, {}).items():
-            if hasattr(target, key) and isinstance(value, type(getattr(target, key))):
+        values = data.get(section, {})
+        if not isinstance(values, dict):
+            continue
+        for key, value in values.items():
+            if _is_valid_value(target, key, value):
                 setattr(target, key, value)
     return config
 
@@ -120,3 +125,16 @@ def get_config_path() -> Path:
 def get_log_path() -> Path:
     """Return the path of the app's log file."""
     return get_data_dir() / "xlsxpress.log"
+
+
+def _is_valid_value(target: object, key: str, value: object) -> bool:
+    """Whether `value` has the type of the default and is in range.
+
+    The type must match exactly, because `true` is an `int` in Python. Integers
+    must be at least 0, and `nrows` at least 1.
+    """
+    if not hasattr(target, key) or type(value) is not type(getattr(target, key)):
+        return False
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value >= (1 if key == "nrows" else 0)
+    return True

@@ -86,6 +86,7 @@ Bugs in code that will be removed are marked *(removed with PyApp)* and won't be
 - [x] A process killed while copying the workbook next to the input leaves a truncated `.xlsx` under the output name
 - [x] A cut-off UTF-16 file fails with an uncaught `UnicodeDecodeError` instead of a `ReadError`
 - [x] The context menu app dies silently if the log file can't be set up
+- [x] A config section that isn't a table (`dialog = 1`) makes every conversion fail; `true`, negative numbers and an `nrows` of 0 are accepted as settings
 
 ## Implementation order
 

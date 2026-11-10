@@ -31,6 +31,17 @@ class TestLoadConfig:
         assert loaded.dialog == DialogDefaults()
         assert loaded.cleanup == CleanupPolicy(max_files=3)
 
+    @pytest.mark.parametrize(
+        "content",
+        ["dialog = 1\n", "[dialog]\nnrows = 0\n", "[cleanup]\nmax_files = true\n", "[cleanup]\nmax_age_days = -1\n"],
+    )
+    def test_load_config_ignores_invalid_sections_and_values(self, content: str) -> None:
+        path = config.get_config_path()
+        path.parent.mkdir(parents=True)
+        path.write_text(content, encoding="utf-8")
+
+        assert config.load_config() == config.default_config()
+
     def test_load_config_returns_defaults_for_an_invalid_file(self) -> None:
         path = config.get_config_path()
         path.parent.mkdir(parents=True)
